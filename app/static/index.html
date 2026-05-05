@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End User Operations Network Team - Ticket Tracker</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>End User Operations Network Team</h1>
+        <div class="header-controls">
+            <button id="theme-toggle" class="btn-secondary">🌙 Dark Mode</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="section">
+                <h2>Create New Ticket</h2>
+                <form id="ticket-form">
+                    <div class="form-group">
+                        <label for="external_ticket_number">Ticket #:</label>
+                        <input type="text" id="external_ticket_number" name="external_ticket_number" required maxlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="device_type">Device Type:</label>
+                        <select id="device_type" name="device_type" required>
+                            <option value="switch">Switch</option>
+                            <option value="access_point">Access Point</option>
+                            <option value="ups">UPS</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="school_name">School Name:</label>
+                        <input type="text" id="school_name" name="school_name" required maxlength="255">
+                    </div>
+                    <div class="form-group">
+                        <label for="tea_code">TEA Code:</label>
+                        <input type="number" id="tea_code" name="tea_code" required min="0" max="999">
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" name="date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="note">Note:</label>
+                        <textarea id="note" name="note" maxlength="1000" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Create Ticket</button>
+                </form>
+            </div>
+
+            <div class="section">
+                <h2>Tickets</h2>
+                <div class="filters">
+                    <select id="status-filter">
+                        <option value="">All Status</option>
+                        <option value="open">Open</option>
+                        <option value="on_hold">On Hold</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <input type="text" id="search-input" placeholder="Search tickets...">
+                </div>
+                <div id="tickets-list" class="tickets-grid">
+                    <!-- Tickets will be loaded here -->
+                </div>
+                <div class="pagination">
+                    <button id="prev-page" class="btn-secondary">Previous</button>
+                    <span id="page-info">Page 1</span>
+                    <button id="next-page" class="btn-secondary">Next</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for editing tickets -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Edit Ticket</h2>
+            <form id="edit-form">
+                <input type="hidden" id="edit-ticket-number" name="ticket_number">
+                <div class="form-group">
+                    <label for="edit-note">Note:</label>
+                    <textarea id="edit-note" name="note" maxlength="1000" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit-status">Status:</label>
+                    <select id="edit-status" name="status">
+                        <option value="open">Open</option>
+                        <option value="on_hold">On Hold</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Update Ticket</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
