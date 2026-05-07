@@ -45,6 +45,66 @@
   gap: 1rem;
 }
 
+.intakeGrid {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.readOnlyField {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+}
+
+.readOnlyField:last-child {
+  border-right: 0;
+}
+
+.readOnlyField span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.readOnlyField strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.serviceForm {
+  display: grid;
+  gap: 1rem;
+}
+
+.serviceGrid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.serviceGrid label {
+  color: var(--text-secondary);
+  display: grid;
+  font-weight: 600;
+  gap: 0.4rem;
+}
+
+.actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 @media (max-width: 860px) {
   .summaryGrid {
     grid-template-columns: 1fr;
@@ -57,5 +117,24 @@
 
   .toolbar input {
     max-width: none;
+  }
+
+  .intakeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .readOnlyField {
+    border-bottom: 1px solid var(--border-color);
+    border-right: 0;
+  }
+
+  .readOnlyField:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .serviceGrid {
+    grid-template-columns: 1fr;
   }
 }

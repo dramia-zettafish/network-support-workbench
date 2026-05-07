@@ -160,6 +160,8 @@ The UPS tab currently supports:
 - Row selection state
 - Derived equipment display
 - Status labels
+- Pending row service-info modal
+- Phase 2 service-info save through `/api/ups-installations/{id}/phase2`
 
 UPS scheduling, warehouse email generation, phase editing, and completion actions are intentionally deferred to later branches.
 

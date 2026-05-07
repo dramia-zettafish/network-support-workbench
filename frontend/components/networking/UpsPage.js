@@ -5,10 +5,24 @@ import { apiRequest } from '../../lib/api';
 import { deriveUpsEquipment, getUpsTicketLabel, toggleSelection, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
+import Modal from '../ui/Modal';
 import PageHeader from '../ui/PageHeader';
 import SectionCard from '../ui/SectionCard';
 import StatusBadge from '../ui/StatusBadge';
 import styles from './UpsPage.module.css';
+
+const emptyServiceForm = {
+  model: '',
+  serial_number: '',
+  snmp_ip: '',
+  hostname: '',
+  asset_tag: '',
+  mac_address: '',
+  room_number: '',
+  defective_battery_pack_serial: '',
+  battery_pack_1_asset_tag: '',
+  idf: ''
+};
 
 export default function UpsPage() {
   const [pendingInstalls, setPendingInstalls] = useState([]);
@@ -18,6 +32,8 @@ export default function UpsPage() {
   const [message, setMessage] = useState(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState(new Set());
   const [selectedInProgressIds, setSelectedInProgressIds] = useState(new Set());
+  const [editingInstall, setEditingInstall] = useState(null);
+  const [serviceForm, setServiceForm] = useState(emptyServiceForm);
 
   useEffect(() => {
     loadUpsInstallations();
@@ -66,6 +82,15 @@ export default function UpsPage() {
         <StatusBadge tone={upsStatusToneMap[install.status] || 'neutral'}>
           {upsStatusLabelMap[install.status] || install.status}
         </StatusBadge>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (install) => (
+        <button type="button" onClick={() => openServiceModal(install)}>
+          Service Info
+        </button>
       )
     }
   ];
@@ -123,6 +148,54 @@ export default function UpsPage() {
     const normalizedSearch = currentSearch.trim().toLowerCase();
     if (!normalizedSearch) return installs;
     return installs.filter((install) => Object.values(install).join(' ').toLowerCase().includes(normalizedSearch));
+  }
+
+  function openServiceModal(install) {
+    setEditingInstall(install);
+    setServiceForm({
+      model: install.model || '',
+      serial_number: install.serial_number || '',
+      snmp_ip: install.snmp_ip || '',
+      hostname: install.hostname || '',
+      asset_tag: install.asset_tag || '',
+      mac_address: install.mac_address || '',
+      room_number: install.room_number || '',
+      defective_battery_pack_serial: install.defective_battery_pack_serial || '',
+      battery_pack_1_asset_tag: install.battery_pack_1_asset_tag || '',
+      idf: install.idf || ''
+    });
+  }
+
+  function closeServiceModal() {
+    setEditingInstall(null);
+    setServiceForm(emptyServiceForm);
+  }
+
+  function updateServiceForm(field, value) {
+    setServiceForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSaveServiceInfo(event) {
+    event.preventDefault();
+    if (!editingInstall) return;
+
+    try {
+      await apiRequest(`/ups-installations/${editingInstall.ups_installation_id}/phase2`, {
+        method: 'PATCH',
+        body: JSON.stringify(normalizeServicePayload(serviceForm))
+      });
+      setMessage({ type: 'success', text: 'UPS service info saved.' });
+      closeServiceModal();
+      loadUpsInstallations();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save UPS service info.' });
+    }
+  }
+
+  function normalizeServicePayload(form) {
+    return Object.fromEntries(
+      Object.entries(form).map(([key, value]) => [key, value.trim() || null])
+    );
   }
 
   return (
@@ -183,10 +256,83 @@ export default function UpsPage() {
           )}
         </SectionCard>
       </div>
+
+      {editingInstall && (
+        <Modal title="UPS Service Info" onClose={closeServiceModal}>
+          <div className={styles.intakeGrid}>
+            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(editingInstall)} />
+            <ReadOnlyField label="School" value={editingInstall.school_name} />
+            <ReadOnlyField label="TEA Code" value={editingInstall.tea_code} />
+            <ReadOnlyField label="MDF/IDF" value={editingInstall.idf || '-'} />
+            <ReadOnlyField
+              label="Status"
+              value={upsStatusLabelMap[editingInstall.status] || editingInstall.status}
+            />
+          </div>
+
+          <form className={styles.serviceForm} onSubmit={handleSaveServiceInfo}>
+            <div className={styles.serviceGrid}>
+              <label>
+                Model
+                <input value={serviceForm.model} onChange={(event) => updateServiceForm('model', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Defective UPS Serial
+                <input value={serviceForm.serial_number} onChange={(event) => updateServiceForm('serial_number', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                SNMP IP
+                <input value={serviceForm.snmp_ip} onChange={(event) => updateServiceForm('snmp_ip', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Hostname
+                <input value={serviceForm.hostname} onChange={(event) => updateServiceForm('hostname', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Asset Tag
+                <input value={serviceForm.asset_tag} onChange={(event) => updateServiceForm('asset_tag', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                MAC
+                <input value={serviceForm.mac_address} onChange={(event) => updateServiceForm('mac_address', event.target.value)} maxLength={32} />
+              </label>
+              <label>
+                Room
+                <input value={serviceForm.room_number} onChange={(event) => updateServiceForm('room_number', event.target.value)} maxLength={50} />
+              </label>
+              <label>
+                MDF/IDF
+                <input value={serviceForm.idf} onChange={(event) => updateServiceForm('idf', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Defective BP Serial
+                <input value={serviceForm.defective_battery_pack_serial} onChange={(event) => updateServiceForm('defective_battery_pack_serial', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                BP Asset Tag
+                <input value={serviceForm.battery_pack_1_asset_tag} onChange={(event) => updateServiceForm('battery_pack_1_asset_tag', event.target.value)} maxLength={100} />
+              </label>
+            </div>
+            <div className={styles.actions}>
+              <button type="submit" className="primaryButton">Save Service Info</button>
+              <button type="button" onClick={closeServiceModal}>Cancel</button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }
 
 function SelectionHint({ count, label }) {
   return count > 0 ? <StatusBadge tone="info">{count} {label}</StatusBadge> : <StatusBadge>0 selected</StatusBadge>;
+}
+
+function ReadOnlyField({ label, value }) {
+  return (
+    <div className={styles.readOnlyField}>
+      <span>{label}</span>
+      <strong>{value || '-'}</strong>
+    </div>
+  );
 }
