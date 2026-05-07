@@ -8,6 +8,7 @@
   --bg-sticky: #11171d;
   --bg-modal: #111111;
   --bg-card: #11171d;
+  --bg-sidebar: #0d1117;
 
   --text-primary: #e8e8e8;
   --text-secondary: #cbd5e1;
@@ -26,6 +27,21 @@
   --status-warning: #f6ad55;
   --status-error: #f97316;
   --status-info: #5da8f2;
+  --status-neutral-bg: #171d25;
+  --status-neutral-border: #2a2f36;
+  --status-neutral-text: #cbd5e1;
+  --status-success-bg: #16251d;
+  --status-success-border: #2d6b45;
+  --status-success-text: #9ae6b4;
+  --status-warning-bg: #2a2115;
+  --status-warning-border: #8a6122;
+  --status-warning-text: #f6ad55;
+  --status-danger-bg: #291915;
+  --status-danger-border: #8b3d24;
+  --status-danger-text: #f97316;
+  --status-info-bg: #142131;
+  --status-info-border: #285d91;
+  --status-info-text: #5da8f2;
 
   --badge-bg: var(--accent-primary);
   --badge-text: #11171d;
@@ -40,8 +56,8 @@
   --tab-active-border: var(--accent-secondary);
   --tab-active-text: var(--text-primary);
 
-  --table-row-alt: transparent;
-  --table-row-hover: transparent;
+  --table-row-alt: #10161d;
+  --table-row-hover: #17202a;
 
   --card-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
   --input-placeholder: #98a2ad;
@@ -76,6 +92,7 @@
   --bg-sticky: #ffffff;
   --bg-modal: #ffffff;
   --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
 
   --text-primary: #1f2937;
   --text-secondary: #374151;
@@ -94,6 +111,21 @@
   --status-warning: #92400e;
   --status-error: #b45309;
   --status-info: #1d4ed8;
+  --status-neutral-bg: #f3f4f6;
+  --status-neutral-border: #d1d5db;
+  --status-neutral-text: #374151;
+  --status-success-bg: #dcfce7;
+  --status-success-border: #86efac;
+  --status-success-text: #166534;
+  --status-warning-bg: #fef3c7;
+  --status-warning-border: #fbbf24;
+  --status-warning-text: #92400e;
+  --status-danger-bg: #ffedd5;
+  --status-danger-border: #fb923c;
+  --status-danger-text: #b45309;
+  --status-info-bg: #dbeafe;
+  --status-info-border: #93c5fd;
+  --status-info-text: #1d4ed8;
 
   --badge-bg: var(--accent-primary);
   --badge-text: #1f2937;
@@ -106,6 +138,8 @@
   --input-placeholder: #9ca3af;
   --focus-ring: 0 0 0 3px rgba(245, 158, 11, 0.25);
   --modal-overlay: rgba(15, 23, 42, 0.45);
+  --table-row-alt: #f8fafc;
+  --table-row-hover: #eef2f7;
 
   --button-primary-bg: var(--accent-primary);
   --button-primary-text: #1f2937;

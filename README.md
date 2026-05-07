@@ -4,13 +4,13 @@ This branch is the active workspace for the post-migration UI redesign. The Fast
 
 ## Branch Purpose
 
-`networking-workspace` starts from the completed Next.js migration baseline and is intended for the next structural UI pass:
+`networking-workspace` starts from the completed Next.js migration baseline and is the active branch for the structural UI pass:
 
 - Shared app shell
 - Sidebar layout
 - Networking workspace
 - Top tab navigation
-- Operations/Dashboard landing page
+- Operations landing page
 - Shared card and table UI system
 
 Major workflow rewrites should wait until the shell and navigation structure are stable.
@@ -114,10 +114,24 @@ The Next.js app currently includes:
 - Plain CSS modules for component styles
 - Dark theme by default
 - Light mode through `data-theme="light"` on `<html>`
-- Top tab bar with `Tickets`, `RMA`, and `UPS`
+- Persistent app shell
+- Left sidebar with `Dashboard`, `Networking`, `Inventory`, `Reports`, and `Settings`
+- Networking workspace top tabs with `Operations`, `Tickets`, `UPS`, and `RMA`
+- Functional Operations landing page with mock control-center data
 - Functional Tickets tab
 - Placeholder RMA tab
 - Placeholder UPS tab
+
+Shared components currently include:
+
+- `PageHeader`
+- `StatCard`
+- `SectionCard`
+- `DataTable`
+- `StatusBadge`
+- `EmptyState`
+- `TabNavigation`
+- `SidebarNavigation`
 
 The Tickets tab currently supports:
 

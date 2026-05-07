@@ -1,83 +1,54 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import TicketsTab from '../components/TicketsTab';
-import RmaTab from '../components/RmaTab';
-import UpsTab from '../components/UpsTab';
-import styles from './page.module.css';
+import { useState } from 'react';
+import AppShell from '../components/shell/AppShell';
+import NetworkingWorkspace from '../components/networking/NetworkingWorkspace';
+import EmptyState from '../components/ui/EmptyState';
+import PageHeader from '../components/ui/PageHeader';
+import SectionCard from '../components/ui/SectionCard';
 
-const tabs = [
-  { id: 'tickets', label: 'Tickets' },
-  { id: 'rma', label: 'RMA' },
-  { id: 'ups', label: 'UPS' }
-];
-
-export default function Home() {
-  const [activeTab, setActiveTab] = useState('tickets');
-  const [theme, setTheme] = useState('dark');
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-      document.documentElement.dataset.theme = 'light';
-      setTheme('light');
-      return;
-    }
-
-    document.documentElement.removeAttribute('data-theme');
-    setTheme('dark');
-  }, []);
-
-  function toggleTheme() {
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    if (nextTheme === 'light') {
-      document.documentElement.dataset.theme = 'light';
-      window.localStorage.setItem('theme', 'light');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      window.localStorage.setItem('theme', 'dark');
-    }
-    setTheme(nextTheme);
+const workspaceCopy = {
+  dashboard: {
+    title: 'Dashboard',
+    description: 'A future operations landing page for cross-workspace health and daily priorities.'
+  },
+  inventory: {
+    title: 'Inventory',
+    description: 'Placeholder for inventory visibility and device lookup workflows.'
+  },
+  reports: {
+    title: 'Reports',
+    description: 'Placeholder for operational exports and recurring reporting views.'
+  },
+  settings: {
+    title: 'Settings',
+    description: 'Placeholder for user preferences and workspace configuration.'
   }
+};
+
+function PlaceholderWorkspace({ workspace }) {
+  const copy = workspaceCopy[workspace] || workspaceCopy.dashboard;
 
   return (
-    <div className={styles.appShell}>
-      <header className={styles.header}>
-        <div>
-          <h1>End User Operations Network Team</h1>
-          <p>Network workflow tracker</p>
-        </div>
-        <button type="button" onClick={toggleTheme}>
-          {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
-        </button>
-      </header>
+    <>
+      <PageHeader eyebrow="Workspace" title={copy.title} description={copy.description} />
+      <SectionCard>
+        <EmptyState title={`${copy.title} coming soon`} description="This shell is ready for future workspace content." />
+      </SectionCard>
+    </>
+  );
+}
 
-      <main className={styles.main}>
-        <nav className={styles.tabbar} aria-label="Workflow tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={styles.tab}
-              data-tab={tab.id}
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+export default function Home() {
+  const [activeWorkspace, setActiveWorkspace] = useState('networking');
 
-        <section className={styles.panel} aria-hidden={activeTab !== 'tickets'}>
-          {activeTab === 'tickets' && <TicketsTab />}
-        </section>
-        <section className={styles.panel} aria-hidden={activeTab !== 'rma'}>
-          {activeTab === 'rma' && <RmaTab />}
-        </section>
-        <section className={styles.panel} aria-hidden={activeTab !== 'ups'}>
-          {activeTab === 'ups' && <UpsTab />}
-        </section>
-      </main>
-    </div>
+  return (
+    <AppShell activeWorkspace={activeWorkspace} onWorkspaceChange={setActiveWorkspace}>
+      {activeWorkspace === 'networking' ? (
+        <NetworkingWorkspace />
+      ) : (
+        <PlaceholderWorkspace workspace={activeWorkspace} />
+      )}
+    </AppShell>
   );
 }

@@ -1,0 +1,17 @@
+.empty {
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  padding: 1rem;
+  text-align: center;
+}
+
+.empty strong {
+  display: block;
+}
+
+.empty p {
+  color: var(--text-muted);
+  margin: 0.25rem 0 0;
+}
