@@ -4,6 +4,7 @@ import { useState } from 'react';
 import TabNavigation from '../ui/TabNavigation';
 import OperationsPage from './OperationsPage';
 import PlaceholderPage from './PlaceholderPage';
+import RmaPage from './RmaPage';
 import TicketsPage from './TicketsPage';
 import styles from './NetworkingWorkspace.module.css';
 
@@ -29,12 +30,7 @@ export default function NetworkingWorkspace() {
             description="UPS intake, scheduling, warehouse email, and fulfillment workflows will be rebuilt here after the shell is stable."
           />
         )}
-        {activeTab === 'rma' && (
-          <PlaceholderPage
-            title="RMA"
-            description="RMA tracking will return here after the shared workspace patterns are finished."
-          />
-        )}
+        {activeTab === 'rma' && <RmaPage />}
       </div>
     </section>
   );
