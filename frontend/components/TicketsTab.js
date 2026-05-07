@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../lib/api';
+import DataTable from './ui/DataTable';
+import Modal from './ui/Modal';
+import SectionCard from './ui/SectionCard';
+import StatusBadge from './ui/StatusBadge';
 import styles from './TicketsTab.module.css';
 
 const limit = 12;
@@ -26,6 +30,12 @@ const statusLabelMap = {
   open: 'Open',
   on_hold: 'On Hold',
   closed: 'Closed'
+};
+
+const statusToneMap = {
+  open: 'success',
+  on_hold: 'warning',
+  closed: 'neutral'
 };
 
 export default function TicketsTab() {
@@ -57,6 +67,34 @@ export default function TicketsTab() {
       Object.values(ticket).join(' ').toLowerCase().includes(normalizedSearch)
     );
   }, [tickets, search]);
+
+  const ticketColumns = [
+    { key: 'ticket', label: 'Ticket #', render: (ticket) => ticket.external_ticket_number || ticket.ticket_number },
+    { key: 'device_type', label: 'Device Type', render: (ticket) => reverseDeviceTypeMap[ticket.device_type] || ticket.device_type },
+    { key: 'school_name', label: 'School' },
+    { key: 'tea_code', label: 'TEA Code' },
+    { key: 'mdf_idf', label: 'MDF/IDF', render: (ticket) => ticket.mdf_idf || '-' },
+    { key: 'date', label: 'Date' },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (ticket) => (
+        <StatusBadge tone={statusToneMap[ticket.status] || 'neutral'}>
+          {statusLabelMap[ticket.status] || ticket.status}
+        </StatusBadge>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (ticket) => (
+        <div className={styles.rowActions}>
+          <button type="button" onClick={() => openEditModal(ticket)}>Edit</button>
+          <button type="button" onClick={() => handleDeleteTicket(ticket.ticket_number)}>Delete</button>
+        </div>
+      )
+    }
+  ];
 
   async function loadTickets() {
     setLoading(true);
@@ -158,8 +196,7 @@ export default function TicketsTab() {
   return (
     <>
       <div className={styles.layout}>
-        <section className="cardSurface">
-          <h2>Create New Ticket</h2>
+        <SectionCard title="Create New Ticket">
           <form className={styles.form} onSubmit={handleCreateTicket}>
             <div className={styles.formGrid}>
               <label>
@@ -238,14 +275,12 @@ export default function TicketsTab() {
               <button type="submit" className="primaryButton">Create Ticket</button>
             </div>
           </form>
-        </section>
+        </SectionCard>
 
-        <section className="cardSurface">
-          <div className={styles.listHeader}>
-            <h2>Tickets</h2>
-            {message && <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>}
-          </div>
-
+        <SectionCard
+          title="Tickets"
+          actions={message && <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>}
+        >
           <div className={styles.filters}>
             <select
               value={statusFilter}
@@ -268,32 +303,17 @@ export default function TicketsTab() {
             />
           </div>
 
-          <div className={styles.ticketGrid}>
-            {loading && <p className="mutedText">Loading tickets...</p>}
-            {!loading && visibleTickets.length === 0 && <p className="mutedText">No tickets found</p>}
-            {!loading && visibleTickets.map((ticket) => (
-              <article key={ticket.ticket_number} className={styles.ticketCard}>
-                <div className={styles.ticketHeader}>
-                  <div>
-                    <h3>Ticket #{ticket.external_ticket_number || ticket.ticket_number}</h3>
-                    <p>
-                      {reverseDeviceTypeMap[ticket.device_type] || ticket.device_type} / {ticket.school_name} / TEA: {ticket.tea_code}
-                    </p>
-                    {ticket.mdf_idf && <p>MDF/IDF: {ticket.mdf_idf}</p>}
-                    <p>{ticket.date}</p>
-                  </div>
-                  <span className={`${styles.statusBadge} ${styles[ticket.status] || ''}`}>
-                    {statusLabelMap[ticket.status] || ticket.status}
-                  </span>
-                </div>
-                {ticket.note && <p className={styles.note}>{ticket.note}</p>}
-                <div className={styles.cardActions}>
-                  <button type="button" onClick={() => openEditModal(ticket)}>Edit</button>
-                  <button type="button" onClick={() => handleDeleteTicket(ticket.ticket_number)}>Delete</button>
-                </div>
-              </article>
-            ))}
-          </div>
+          {loading ? (
+            <p className="mutedText">Loading tickets...</p>
+          ) : (
+            <DataTable
+              columns={ticketColumns}
+              rows={visibleTickets}
+              getRowKey={(ticket) => ticket.ticket_number}
+              emptyTitle="No tickets found"
+              emptyDescription="Create a ticket or adjust the current filters."
+            />
+          )}
 
           <div className={styles.pagination}>
             <button
@@ -312,52 +332,39 @@ export default function TicketsTab() {
               Next
             </button>
           </div>
-        </section>
+        </SectionCard>
       </div>
 
       {editingTicket && (
-        <div className={styles.modalBackdrop} role="presentation" onMouseDown={closeEditModal}>
-          <section
-            className={styles.modal}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Edit ticket"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button type="button" className={styles.closeButton} onClick={closeEditModal} aria-label="Close edit modal">
-              x
-            </button>
-            <h2>Edit Ticket</h2>
-            <form className={styles.form} onSubmit={handleUpdateTicket}>
-              <label>
-                Note
-                <textarea
-                  value={editForm.note}
-                  onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
-                  maxLength={1000}
-                  rows={3}
-                />
-              </label>
-              <label>
-                Status
-                <select
-                  value={editForm.status}
-                  onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value }))}
-                >
-                  <option value="open">Open</option>
-                  <option value="on_hold">On Hold</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </label>
-              <div className={styles.actions}>
-                <button type="submit" className="primaryButton">Update Ticket</button>
-                <button type="button" onClick={closeEditModal}>Cancel</button>
-              </div>
-            </form>
-          </section>
-        </div>
+        <Modal title="Edit Ticket" onClose={closeEditModal}>
+          <form className={styles.form} onSubmit={handleUpdateTicket}>
+            <label>
+              Note
+              <textarea
+                value={editForm.note}
+                onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
+                maxLength={1000}
+                rows={3}
+              />
+            </label>
+            <label>
+              Status
+              <select
+                value={editForm.status}
+                onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value }))}
+              >
+                <option value="open">Open</option>
+                <option value="on_hold">On Hold</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+            <div className={styles.actions}>
+              <button type="submit" className="primaryButton">Update Ticket</button>
+              <button type="button" onClick={closeEditModal}>Cancel</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </>
   );
 }
-

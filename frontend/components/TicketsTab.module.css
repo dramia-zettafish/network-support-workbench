@@ -1,7 +1,7 @@
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 1.25rem;
+  gap: 1rem;
+  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
   align-items: start;
 }
 
@@ -11,177 +11,78 @@
 }
 
 .form label {
-  display: grid;
-  gap: 0.4rem;
   color: var(--text-secondary);
+  display: grid;
   font-weight: 600;
+  gap: 0.4rem;
 }
 
 .formGrid {
   display: grid;
+  gap: 0.85rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
 }
 
 .actions,
-.cardActions,
+.rowActions,
 .pagination,
-.filters,
-.listHeader,
-.ticketHeader {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.actions,
-.cardActions,
-.pagination {
+.filters {
   align-items: center;
+  display: flex;
   flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .filters {
-  align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
 }
 
-.listHeader,
-.ticketHeader {
-  justify-content: space-between;
-  align-items: flex-start;
+.rowActions {
+  flex-wrap: nowrap;
 }
 
-.listHeader {
-  margin-bottom: 1rem;
-}
-
-.listHeader h2 {
-  margin-bottom: 0;
-}
-
-.ticketGrid {
-  display: grid;
-  gap: 1rem;
-}
-
-.ticketCard {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.ticketHeader h3 {
-  margin-bottom: 0.25rem;
-}
-
-.ticketHeader p,
-.note {
-  color: var(--text-muted);
-  margin-bottom: 0.25rem;
-}
-
-.note {
-  color: var(--text-secondary);
-  margin-top: 0.75rem;
-}
-
-.statusBadge {
-  border-radius: 999px;
-  background: var(--bg-alt);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  padding: 0.25rem 0.6rem;
-  white-space: nowrap;
-}
-
-.open {
-  background: var(--status-success);
-  color: var(--text-inverse);
-  border-color: var(--status-success);
-}
-
-.on_hold {
-  background: var(--status-warning);
-  color: var(--text-inverse);
-  border-color: var(--status-warning);
-}
-
-.closed {
-  background: var(--secondary-color);
-  color: var(--text-inverse);
-  border-color: var(--secondary-color);
+.rowActions button {
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
 }
 
 .message {
   border: 1px solid var(--border-color);
   border-radius: 6px;
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: 0.45rem 0.7rem;
 }
 
 .success {
-  color: var(--status-success);
-  border-color: var(--status-success);
+  border-color: var(--status-success-border);
+  color: var(--status-success-text);
 }
 
 .error {
-  color: var(--status-error);
-  border-color: var(--status-error);
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-text);
 }
 
 .pagination {
   border-top: 1px solid var(--border-color);
   justify-content: flex-end;
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
 }
 
-.modalBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  background: var(--modal-overlay);
-  padding: 1rem;
-}
-
-.modal {
-  position: relative;
-  width: min(560px, 100%);
-  background: var(--bg-modal);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: var(--card-shadow);
-  padding: 1.5rem;
-}
-
-.closeButton {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-}
-
-@media (max-width: 900px) {
+@media (max-width: 1060px) {
   .layout {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 620px) {
-  .formGrid,
-  .filters {
+  .formGrid {
     grid-template-columns: 1fr;
   }
 
-  .filters,
-  .listHeader,
-  .ticketHeader {
+  .filters {
+    align-items: stretch;
     flex-direction: column;
   }
 
