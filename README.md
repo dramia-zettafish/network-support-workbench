@@ -162,8 +162,12 @@ The UPS tab currently supports:
 - Status labels
 - Pending row service-info modal
 - Phase 2 service-info save through `/api/ups-installations/{id}/phase2`
+- Service response email copy from the service-info modal
+- NOC schedule generation from selected pending rows
+- Per-row proposed install date editing before moving records to In Progress
+- Outlook-friendly schedule table copied to clipboard
 
-UPS scheduling, warehouse email generation, phase editing, and completion actions are intentionally deferred to later branches.
+UPS warehouse email generation, phase 3 fulfillment, and completion actions are intentionally deferred to later branches.
 
 ## Backend Notes
 

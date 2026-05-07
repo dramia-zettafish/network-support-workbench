@@ -45,6 +45,14 @@
   gap: 1rem;
 }
 
+.sectionActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
 .intakeGrid {
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -105,6 +113,44 @@
   gap: 0.65rem;
 }
 
+.scheduleRows {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.scheduleRow {
+  align-items: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  padding: 0.85rem;
+}
+
+.scheduleRow > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.scheduleRow strong {
+  color: var(--text-primary);
+}
+
+.scheduleRow span {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.scheduleRow label {
+  color: var(--text-secondary);
+  display: grid;
+  font-weight: 600;
+  gap: 0.4rem;
+}
+
 @media (max-width: 860px) {
   .summaryGrid {
     grid-template-columns: 1fr;
@@ -130,6 +176,14 @@
 
   .readOnlyField:last-child {
     border-bottom: 0;
+  }
+
+  .sectionActions {
+    justify-content: flex-start;
+  }
+
+  .scheduleRow {
+    grid-template-columns: 1fr;
   }
 }
 

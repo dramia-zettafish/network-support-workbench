@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
-import { copyTextToClipboard } from '../../lib/clipboard';
+import { copyHtmlToClipboard, copyTextToClipboard } from '../../lib/clipboard';
 import { deriveUpsEquipment, getUpsTicketLabel, toggleSelection, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
@@ -25,6 +25,10 @@ const emptyServiceForm = {
   idf: ''
 };
 
+function getTodayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function UpsPage() {
   const [pendingInstalls, setPendingInstalls] = useState([]);
   const [inProgressInstalls, setInProgressInstalls] = useState([]);
@@ -35,6 +39,8 @@ export default function UpsPage() {
   const [selectedInProgressIds, setSelectedInProgressIds] = useState(new Set());
   const [editingInstall, setEditingInstall] = useState(null);
   const [serviceForm, setServiceForm] = useState(emptyServiceForm);
+  const [scheduleRows, setScheduleRows] = useState([]);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   useEffect(() => {
     loadUpsInstallations();
@@ -240,6 +246,118 @@ export default function UpsPage() {
     return lines.join('\n');
   }
 
+  function openScheduleModal() {
+    const selectedRows = pendingInstalls
+      .filter((install) => selectedPendingIds.has(install.ups_installation_id))
+      .map((install) => ({
+        ups_installation_id: install.ups_installation_id,
+        ticket_number: getUpsTicketLabel(install),
+        idf: install.idf || '',
+        school_name: install.school_name,
+        proposed_install_date: install.proposed_install_date || getTodayIsoDate(),
+        equipment: deriveUpsEquipment(install)
+      }));
+
+    if (selectedRows.length === 0) {
+      setMessage({ type: 'error', text: 'Select at least one pending UPS record first.' });
+      return;
+    }
+
+    setScheduleRows(selectedRows);
+    setScheduleModalOpen(true);
+  }
+
+  function closeScheduleModal() {
+    setScheduleModalOpen(false);
+    setScheduleRows([]);
+  }
+
+  function updateScheduleRowDate(upsInstallationId, proposedInstallDate) {
+    setScheduleRows((currentRows) =>
+      currentRows.map((row) =>
+        row.ups_installation_id === upsInstallationId
+          ? { ...row, proposed_install_date: proposedInstallDate }
+          : row
+      )
+    );
+  }
+
+  async function handleMoveToInProgress() {
+    if (scheduleRows.length === 0) return;
+
+    try {
+      const scheduleResponse = await apiRequest('/ups/schedule/custom', {
+        method: 'POST',
+        body: JSON.stringify({
+          rows: scheduleRows.map((row) => ({
+            ups_installation_id: row.ups_installation_id,
+            proposed_install_date: row.proposed_install_date
+          }))
+        })
+      });
+
+      await copyHtmlToClipboard(
+        buildScheduleHtmlTable(scheduleResponse.rows || []),
+        buildScheduleTextTable(scheduleResponse.rows || [])
+      );
+      setMessage({ type: 'success', text: 'NOC schedule copied and selected UPS records moved to In Progress.' });
+      closeScheduleModal();
+      loadUpsInstallations();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to move selected UPS records to In Progress.' });
+    }
+  }
+
+  function buildScheduleHtmlTable(rows) {
+    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Contact', 'Install Contact #', 'Proposed Install Date', 'Type', 'Equipment'];
+    const bodyRows = rows.map((row) => [
+      row.ticket_number,
+      row.idf || '',
+      row.school_name,
+      row.install_contact || '',
+      row.install_contact_number || '',
+      row.proposed_install_date,
+      row.type || 'Replace',
+      row.equipment
+    ]);
+
+    return `
+      <table border="1" cellspacing="0" cellpadding="6">
+        <thead>
+          <tr>${headers.map((header) => `<th>${escapeTableValue(header)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeTableValue(cell)}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function buildScheduleTextTable(rows) {
+    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Contact', 'Install Contact #', 'Proposed Install Date', 'Type', 'Equipment'];
+    const bodyRows = rows.map((row) => [
+      row.ticket_number,
+      row.idf || '',
+      row.school_name,
+      row.install_contact || '',
+      row.install_contact_number || '',
+      row.proposed_install_date,
+      row.type || 'Replace',
+      row.equipment
+    ]);
+
+    return [headers, ...bodyRows].map((row) => row.map((cell) => cell || '').join('\t')).join('\n');
+  }
+
+  function escapeTableValue(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   return (
     <>
       <PageHeader
@@ -273,7 +391,16 @@ export default function UpsPage() {
         <SectionCard
           title="Pending Installs"
           description="Selection is ready for the future NOC schedule workflow."
-          actions={<SelectionHint count={selectedPendingIds.size} label="pending selected" />}
+          actions={
+            <div className={styles.sectionActions}>
+              <SelectionHint count={selectedPendingIds.size} label="pending selected" />
+              {selectedPendingIds.size > 0 && (
+                <button type="button" className="primaryButton" onClick={openScheduleModal}>
+                  Generate NOC Schedule
+                </button>
+              )}
+            </div>
+          }
         >
           {loading ? (
             <p className="mutedText">Loading pending UPS installs...</p>
@@ -361,6 +488,39 @@ export default function UpsPage() {
               <button type="button" onClick={closeServiceModal}>Cancel</button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {scheduleModalOpen && (
+        <Modal title="NOC Schedule" onClose={closeScheduleModal}>
+          <p className="mutedText">Review install dates, then move selected records to In Progress. The schedule table will be copied for Outlook.</p>
+          <div className={styles.scheduleRows}>
+            {scheduleRows.map((row) => (
+              <div key={row.ups_installation_id} className={styles.scheduleRow}>
+                <div>
+                  <strong>Ticket #{row.ticket_number}</strong>
+                  <span>{row.school_name}</span>
+                  <span>IDF: {row.idf || '-'}</span>
+                  <span>{row.equipment}</span>
+                </div>
+                <label>
+                  Proposed Install Date
+                  <input
+                    type="date"
+                    value={row.proposed_install_date}
+                    onChange={(event) => updateScheduleRowDate(row.ups_installation_id, event.target.value)}
+                    required
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
+          <div className={styles.actions}>
+            <button type="button" className="primaryButton" onClick={handleMoveToInProgress}>
+              Move to In Progress
+            </button>
+            <button type="button" onClick={closeScheduleModal}>Cancel</button>
+          </div>
         </Modal>
       )}
     </>

@@ -14,3 +14,16 @@ export async function copyTextToClipboard(text) {
   document.execCommand('copy');
   document.body.removeChild(textarea);
 }
+
+export async function copyHtmlToClipboard(html, fallbackText) {
+  if (navigator.clipboard && window.ClipboardItem) {
+    const item = new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([fallbackText], { type: 'text/plain' })
+    });
+    await navigator.clipboard.write([item]);
+    return;
+  }
+
+  await copyTextToClipboard(fallbackText);
+}
