@@ -166,8 +166,12 @@ The UPS tab currently supports:
 - NOC schedule generation from selected pending rows
 - Per-row proposed install date editing before moving records to In Progress
 - Outlook-friendly schedule table copied to clipboard
+- Warehouse email preview from selected In Progress rows
+- Warehouse missing-field warnings
+- Outlook-friendly warehouse table copied to clipboard
+- Read-only In Progress row summary modal
 
-UPS warehouse email generation, phase 3 fulfillment, and completion actions are intentionally deferred to later branches.
+UPS phase 3 fulfillment and completion actions are intentionally deferred to later branches.
 
 ## Backend Notes
 

@@ -151,6 +151,80 @@
   gap: 0.4rem;
 }
 
+.warningList {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.85rem 0;
+}
+
+.warningList:empty {
+  display: none;
+}
+
+.warningList p {
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
+  border-radius: 6px;
+  color: var(--status-warning-text);
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+}
+
+.previewTableWrap {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.previewTable {
+  border-collapse: collapse;
+  min-width: 960px;
+  width: 100%;
+}
+
+.previewTable th,
+.previewTable td {
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.previewTable th {
+  background: var(--bg-sticky);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.previewTable td {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.previewTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.summaryDetails {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.summaryDetails .readOnlyField {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.summaryDetails .readOnlyField:nth-child(even) {
+  border-right: 0;
+}
+
 @media (max-width: 860px) {
   .summaryGrid {
     grid-template-columns: 1fr;
@@ -183,6 +257,10 @@
   }
 
   .scheduleRow {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryDetails {
     grid-template-columns: 1fr;
   }
 }

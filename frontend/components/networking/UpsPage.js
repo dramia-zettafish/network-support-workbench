@@ -41,6 +41,9 @@ export default function UpsPage() {
   const [serviceForm, setServiceForm] = useState(emptyServiceForm);
   const [scheduleRows, setScheduleRows] = useState([]);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [warehouseRows, setWarehouseRows] = useState([]);
+  const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
+  const [summaryInstall, setSummaryInstall] = useState(null);
 
   useEffect(() => {
     loadUpsInstallations();
@@ -129,6 +132,15 @@ export default function UpsPage() {
         <StatusBadge tone={upsStatusToneMap[install.status] || 'neutral'}>
           {upsStatusLabelMap[install.status] || install.status}
         </StatusBadge>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (install) => (
+        <button type="button" onClick={() => setSummaryInstall(install)}>
+          Summary
+        </button>
       )
     }
   ];
@@ -349,6 +361,105 @@ export default function UpsPage() {
     return [headers, ...bodyRows].map((row) => row.map((cell) => cell || '').join('\t')).join('\n');
   }
 
+  function openWarehouseModal() {
+    const rows = inProgressInstalls
+      .filter((install) => selectedInProgressIds.has(install.ups_installation_id))
+      .map((install) => ({
+        ups_installation_id: install.ups_installation_id,
+        ticket_number: getUpsTicketLabel(install),
+        idf: install.idf || '',
+        school_name: install.school_name,
+        install_date: install.proposed_install_date || '',
+        type: 'Replace',
+        equipment: deriveUpsEquipment(install),
+        ups_serial: '',
+        ups_po: install.ups_po || '',
+        bp_serials: '',
+        bp_po: install.bp_po || ''
+      }));
+
+    if (rows.length === 0) {
+      setMessage({ type: 'error', text: 'Select at least one in-progress UPS record first.' });
+      return;
+    }
+
+    setWarehouseRows(rows);
+    setWarehouseModalOpen(true);
+  }
+
+  function closeWarehouseModal() {
+    setWarehouseModalOpen(false);
+    setWarehouseRows([]);
+  }
+
+  async function handleCopyWarehouseTable() {
+    try {
+      await copyHtmlToClipboard(
+        buildWarehouseHtmlTable(warehouseRows),
+        buildWarehouseTextTable(warehouseRows)
+      );
+      setMessage({ type: 'success', text: 'Warehouse table copied to clipboard.' });
+      setSelectedInProgressIds(new Set());
+      closeWarehouseModal();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy warehouse table.' });
+    }
+  }
+
+  function getWarehouseWarnings(row) {
+    const warnings = [];
+    if (!row.install_date) warnings.push('Missing install date');
+    if (!row.idf) warnings.push('Missing IDF');
+    if (!row.ups_po) warnings.push('Missing UPS PO');
+    if (row.equipment.includes('BP') && !row.bp_po) warnings.push('Missing BP PO');
+    return warnings;
+  }
+
+  function buildWarehouseHtmlTable(rows) {
+    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Date', 'Type', 'Equipment', 'UPS Serial', 'UPS PO', 'BP Serial(s)', 'BP PO'];
+    const bodyRows = rows.map((row) => [
+      row.ticket_number,
+      row.idf,
+      row.school_name,
+      row.install_date,
+      row.type,
+      row.equipment,
+      row.ups_serial,
+      row.ups_po,
+      row.bp_serials,
+      row.bp_po
+    ]);
+
+    return `
+      <table border="1" cellspacing="0" cellpadding="6">
+        <thead>
+          <tr>${headers.map((header) => `<th>${escapeTableValue(header)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeTableValue(cell)}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function buildWarehouseTextTable(rows) {
+    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Date', 'Type', 'Equipment', 'UPS Serial', 'UPS PO', 'BP Serial(s)', 'BP PO'];
+    const bodyRows = rows.map((row) => [
+      row.ticket_number,
+      row.idf,
+      row.school_name,
+      row.install_date,
+      row.type,
+      row.equipment,
+      row.ups_serial,
+      row.ups_po,
+      row.bp_serials,
+      row.bp_po
+    ]);
+
+    return [headers, ...bodyRows].map((row) => row.map((cell) => cell || '').join('\t')).join('\n');
+  }
+
   function escapeTableValue(value) {
     return String(value || '')
       .replace(/&/g, '&amp;')
@@ -414,7 +525,16 @@ export default function UpsPage() {
         <SectionCard
           title="In Progress"
           description="Selection is ready for the future warehouse and completion workflows."
-          actions={<SelectionHint count={selectedInProgressIds.size} label="in progress selected" />}
+          actions={
+            <div className={styles.sectionActions}>
+              <SelectionHint count={selectedInProgressIds.size} label="in progress selected" />
+              {selectedInProgressIds.size > 0 && (
+                <button type="button" className="primaryButton" onClick={openWarehouseModal}>
+                  Generate Warehouse Email
+                </button>
+              )}
+            </div>
+          }
         >
           {loading ? (
             <p className="mutedText">Loading in-progress UPS installs...</p>
@@ -520,6 +640,76 @@ export default function UpsPage() {
               Move to In Progress
             </button>
             <button type="button" onClick={closeScheduleModal}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {warehouseModalOpen && (
+        <Modal title="Warehouse Email Preview" onClose={closeWarehouseModal}>
+          <p className="mutedText">Review the table below before copying it for Outlook. Blank serial columns are intentional for Warehouse.</p>
+          <div className={styles.warningList}>
+            {warehouseRows.flatMap((row) =>
+              getWarehouseWarnings(row).map((warning) => (
+                <p key={`${row.ups_installation_id}-${warning}`}>Ticket #{row.ticket_number}: {warning}</p>
+              ))
+            )}
+          </div>
+          <div className={styles.previewTableWrap}>
+            <table className={styles.previewTable}>
+              <thead>
+                <tr>
+                  <th>Ticket #</th>
+                  <th>IDF</th>
+                  <th>School Name</th>
+                  <th>Install Date</th>
+                  <th>Type</th>
+                  <th>Equipment</th>
+                  <th>UPS Serial</th>
+                  <th>UPS PO</th>
+                  <th>BP Serial(s)</th>
+                  <th>BP PO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {warehouseRows.map((row) => (
+                  <tr key={row.ups_installation_id}>
+                    <td>{row.ticket_number}</td>
+                    <td>{row.idf || '-'}</td>
+                    <td>{row.school_name}</td>
+                    <td>{row.install_date || '-'}</td>
+                    <td>{row.type}</td>
+                    <td>{row.equipment}</td>
+                    <td>{row.ups_serial}</td>
+                    <td>{row.ups_po || '-'}</td>
+                    <td>{row.bp_serials}</td>
+                    <td>{row.bp_po || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className={styles.actions}>
+            <button type="button" className="primaryButton" onClick={handleCopyWarehouseTable}>
+              Copy Warehouse Table
+            </button>
+            <button type="button" onClick={closeWarehouseModal}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {summaryInstall && (
+        <Modal title="UPS Summary" onClose={() => setSummaryInstall(null)}>
+          <div className={styles.summaryDetails}>
+            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(summaryInstall)} />
+            <ReadOnlyField label="School" value={summaryInstall.school_name} />
+            <ReadOnlyField label="IDF" value={summaryInstall.idf || '-'} />
+            <ReadOnlyField label="Install Date" value={summaryInstall.proposed_install_date || '-'} />
+            <ReadOnlyField label="Equipment" value={deriveUpsEquipment(summaryInstall)} />
+            <ReadOnlyField label="UPS PO" value={summaryInstall.ups_po || '-'} />
+            <ReadOnlyField label="BP PO" value={summaryInstall.bp_po || '-'} />
+          </div>
+          <div className={styles.actions}>
+            <button type="button" onClick={() => setSummaryInstall(null)}>Close</button>
           </div>
         </Modal>
       )}
