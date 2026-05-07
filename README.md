@@ -170,8 +170,10 @@ The UPS tab currently supports:
 - Warehouse missing-field warnings
 - Outlook-friendly warehouse table copied to clipboard
 - Read-only In Progress row summary modal
+- Phase 3 fulfillment modal for In Progress rows
+- Phase 3 device save through `/api/ups-installations/{id}/phase3-devices`
 
-UPS phase 3 fulfillment and completion actions are intentionally deferred to later branches.
+UPS completion actions are intentionally deferred to later branches.
 
 ## Backend Notes
 

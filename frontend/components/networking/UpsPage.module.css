@@ -53,6 +53,18 @@
   justify-content: flex-end;
 }
 
+.rowActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+
+.rowActions button {
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+}
+
 .intakeGrid {
   border: 1px solid var(--border-color);
   border-radius: 8px;

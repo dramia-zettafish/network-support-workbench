@@ -25,6 +25,15 @@ const emptyServiceForm = {
   idf: ''
 };
 
+const emptyFulfillmentForm = {
+  asset_tag: '',
+  new_serial_number: '',
+  new_webcard_serial: '',
+  snmp_ip: '',
+  new_battery_pack_serial: '',
+  new_battery_pack_asset_tag: ''
+};
+
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -44,6 +53,8 @@ export default function UpsPage() {
   const [warehouseRows, setWarehouseRows] = useState([]);
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
   const [summaryInstall, setSummaryInstall] = useState(null);
+  const [fulfillmentInstall, setFulfillmentInstall] = useState(null);
+  const [fulfillmentForm, setFulfillmentForm] = useState(emptyFulfillmentForm);
 
   useEffect(() => {
     loadUpsInstallations();
@@ -138,9 +149,14 @@ export default function UpsPage() {
       key: 'actions',
       label: 'Actions',
       render: (install) => (
-        <button type="button" onClick={() => setSummaryInstall(install)}>
-          Summary
-        </button>
+        <div className={styles.rowActions}>
+          <button type="button" onClick={() => setSummaryInstall(install)}>
+            Summary
+          </button>
+          <button type="button" onClick={() => openFulfillmentModal(install)}>
+            Fulfillment
+          </button>
+        </div>
       )
     }
   ];
@@ -390,6 +406,50 @@ export default function UpsPage() {
   function closeWarehouseModal() {
     setWarehouseModalOpen(false);
     setWarehouseRows([]);
+  }
+
+  function openFulfillmentModal(install) {
+    setFulfillmentInstall(install);
+    setFulfillmentForm({
+      asset_tag: install.asset_tag || '',
+      new_serial_number: install.new_serial_number || '',
+      new_webcard_serial: install.new_webcard_serial || '',
+      snmp_ip: install.snmp_ip || '',
+      new_battery_pack_serial: install.new_battery_pack_serial || '',
+      new_battery_pack_asset_tag: install.new_battery_pack_asset_tag || ''
+    });
+  }
+
+  function closeFulfillmentModal() {
+    setFulfillmentInstall(null);
+    setFulfillmentForm(emptyFulfillmentForm);
+  }
+
+  function updateFulfillmentForm(field, value) {
+    setFulfillmentForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSaveFulfillment(event) {
+    event.preventDefault();
+    if (!fulfillmentInstall) return;
+
+    try {
+      await apiRequest(`/ups-installations/${fulfillmentInstall.ups_installation_id}/phase3-devices`, {
+        method: 'PATCH',
+        body: JSON.stringify(normalizeFulfillmentPayload(fulfillmentForm))
+      });
+      setMessage({ type: 'success', text: 'UPS fulfillment details saved.' });
+      closeFulfillmentModal();
+      loadUpsInstallations();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save UPS fulfillment details.' });
+    }
+  }
+
+  function normalizeFulfillmentPayload(form) {
+    return Object.fromEntries(
+      Object.entries(form).map(([key, value]) => [key, value.trim() || null])
+    );
   }
 
   async function handleCopyWarehouseTable() {
@@ -711,6 +771,51 @@ export default function UpsPage() {
           <div className={styles.actions}>
             <button type="button" onClick={() => setSummaryInstall(null)}>Close</button>
           </div>
+        </Modal>
+      )}
+
+      {fulfillmentInstall && (
+        <Modal title="UPS Phase 3 Fulfillment" onClose={closeFulfillmentModal}>
+          <div className={styles.summaryDetails}>
+            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(fulfillmentInstall)} />
+            <ReadOnlyField label="School" value={fulfillmentInstall.school_name} />
+            <ReadOnlyField label="IDF" value={fulfillmentInstall.idf || '-'} />
+            <ReadOnlyField label="Install Date" value={fulfillmentInstall.proposed_install_date || '-'} />
+            <ReadOnlyField label="Equipment" value={deriveUpsEquipment(fulfillmentInstall)} />
+          </div>
+
+          <form className={styles.serviceForm} onSubmit={handleSaveFulfillment}>
+            <div className={styles.serviceGrid}>
+              <label>
+                Asset Tag #
+                <input value={fulfillmentForm.asset_tag} onChange={(event) => updateFulfillmentForm('asset_tag', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                UPS SN
+                <input value={fulfillmentForm.new_serial_number} onChange={(event) => updateFulfillmentForm('new_serial_number', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                SNMPWEBCARD SN
+                <input value={fulfillmentForm.new_webcard_serial} onChange={(event) => updateFulfillmentForm('new_webcard_serial', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                SNMP IP
+                <input value={fulfillmentForm.snmp_ip} onChange={(event) => updateFulfillmentForm('snmp_ip', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                BP SN
+                <input value={fulfillmentForm.new_battery_pack_serial} onChange={(event) => updateFulfillmentForm('new_battery_pack_serial', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                BP Asset Tag #
+                <input value={fulfillmentForm.new_battery_pack_asset_tag} onChange={(event) => updateFulfillmentForm('new_battery_pack_asset_tag', event.target.value)} maxLength={100} />
+              </label>
+            </div>
+            <div className={styles.actions}>
+              <button type="submit" className="primaryButton">Save Fulfillment</button>
+              <button type="button" onClick={closeFulfillmentModal}>Cancel</button>
+            </div>
+          </form>
         </Modal>
       )}
     </>
