@@ -41,6 +41,7 @@ function getTodayIsoDate() {
 export default function UpsPage() {
   const [pendingInstalls, setPendingInstalls] = useState([]);
   const [inProgressInstalls, setInProgressInstalls] = useState([]);
+  const [completedInstalls, setCompletedInstalls] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -74,6 +75,11 @@ export default function UpsPage() {
   const visibleInProgressInstalls = useMemo(
     () => filterInstallations(inProgressInstalls, search),
     [inProgressInstalls, search]
+  );
+
+  const visibleCompletedInstalls = useMemo(
+    () => filterInstallations(completedInstalls, search),
+    [completedInstalls, search]
   );
 
   const pendingColumns = [
@@ -161,15 +167,37 @@ export default function UpsPage() {
     }
   ];
 
+  const completedColumns = [
+    { key: 'ticket', label: 'Ticket #', render: getUpsTicketLabel },
+    { key: 'school_name', label: 'School' },
+    { key: 'idf', label: 'IDF', render: (install) => install.idf || '-' },
+    { key: 'proposed_install_date', label: 'Install Date', render: (install) => install.proposed_install_date || '-' },
+    { key: 'equipment', label: 'Equipment', render: deriveUpsEquipment },
+    { key: 'asset_tag', label: 'Asset Tag #', render: (install) => install.asset_tag || '-' },
+    { key: 'new_serial_number', label: 'UPS SN', render: (install) => install.new_serial_number || '-' },
+    { key: 'snmp_ip', label: 'SNMP IP', render: (install) => install.snmp_ip || '-' },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (install) => (
+        <StatusBadge tone={upsStatusToneMap[install.status] || 'neutral'}>
+          {upsStatusLabelMap[install.status] || install.status}
+        </StatusBadge>
+      )
+    }
+  ];
+
   async function loadUpsInstallations() {
     setLoading(true);
     try {
-      const [pending, inProgress] = await Promise.all([
+      const [pending, inProgress, completed] = await Promise.all([
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
-        apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0')
+        apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0'),
+        apiRequest('/ups-installations/?status=fulfilled&limit=1000&offset=0')
       ]);
       setPendingInstalls(pending || []);
       setInProgressInstalls(inProgress || []);
+      setCompletedInstalls(completed || []);
       setSelectedPendingIds(new Set());
       setSelectedInProgressIds(new Set());
     } catch (error) {
@@ -446,6 +474,29 @@ export default function UpsPage() {
     }
   }
 
+  async function handleMoveToCompleted() {
+    const selectedIds = Array.from(selectedInProgressIds);
+    if (selectedIds.length === 0) return;
+
+    const shouldMove = window.confirm(`Move ${selectedIds.length} UPS record${selectedIds.length === 1 ? '' : 's'} to Completed?`);
+    if (!shouldMove) return;
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          apiRequest(`/ups-installations/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: 'fulfilled' })
+          })
+        )
+      );
+      setMessage({ type: 'success', text: 'Selected UPS records moved to Completed.' });
+      loadUpsInstallations();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to move selected UPS records to Completed.' });
+    }
+  }
+
   function normalizeFulfillmentPayload(form) {
     return Object.fromEntries(
       Object.entries(form).map(([key, value]) => [key, value.trim() || null])
@@ -534,7 +585,7 @@ export default function UpsPage() {
       <PageHeader
         eyebrow="Networking"
         title="UPS"
-        description="Foundation view for UPS pending installs and in-progress work. Scheduling, warehouse email, and phase actions are intentionally not wired in this pass."
+        description="Track UPS installs from intake through scheduling, warehouse coordination, fulfillment, and completion."
         actions={<button type="button" onClick={loadUpsInstallations}>Refresh</button>}
       />
 
@@ -552,16 +603,20 @@ export default function UpsPage() {
           <strong className={styles.summaryValue}>{inProgressInstalls.length}</strong>
           <p className="mutedText">Scheduled records awaiting fulfillment.</p>
         </SectionCard>
+        <SectionCard title="Completed">
+          <strong className={styles.summaryValue}>{completedInstalls.length}</strong>
+          <p className="mutedText">Fulfilled UPS records.</p>
+        </SectionCard>
         <SectionCard title="Selected">
           <strong className={styles.summaryValue}>{selectedPendingIds.size + selectedInProgressIds.size}</strong>
-          <p className="mutedText">Selection state only; bulk actions come next.</p>
+          <p className="mutedText">Selected for schedule, warehouse, or completion actions.</p>
         </SectionCard>
       </div>
 
       <div className={styles.tables}>
         <SectionCard
           title="Pending Installs"
-          description="Selection is ready for the future NOC schedule workflow."
+          description="Select pending records to build the NOC schedule and move them to In Progress."
           actions={
             <div className={styles.sectionActions}>
               <SelectionHint count={selectedPendingIds.size} label="pending selected" />
@@ -584,14 +639,19 @@ export default function UpsPage() {
 
         <SectionCard
           title="In Progress"
-          description="Selection is ready for the future warehouse and completion workflows."
+          description="Select scheduled records to copy the warehouse table or move completed installs out of active work."
           actions={
             <div className={styles.sectionActions}>
               <SelectionHint count={selectedInProgressIds.size} label="in progress selected" />
               {selectedInProgressIds.size > 0 && (
-                <button type="button" className="primaryButton" onClick={openWarehouseModal}>
-                  Generate Warehouse Email
-                </button>
+                <>
+                  <button type="button" className="primaryButton" onClick={openWarehouseModal}>
+                    Copy Warehouse Table
+                  </button>
+                  <button type="button" onClick={handleMoveToCompleted}>
+                    Move to Completed
+                  </button>
+                </>
               )}
             </div>
           }
@@ -602,6 +662,19 @@ export default function UpsPage() {
             <DataTable columns={inProgressColumns} rows={visibleInProgressInstalls} getRowKey={(install) => install.ups_installation_id} />
           ) : (
             <EmptyState title="No in-progress UPS installs" description="Scheduled UPS records will appear here." />
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Completed"
+          description="Fulfilled UPS records stay here for quick reference."
+        >
+          {loading ? (
+            <p className="mutedText">Loading completed UPS installs...</p>
+          ) : visibleCompletedInstalls.length > 0 ? (
+            <DataTable columns={completedColumns} rows={visibleCompletedInstalls} getRowKey={(install) => install.ups_installation_id} />
+          ) : (
+            <EmptyState title="No completed UPS installs" description="Move fulfilled UPS records from In Progress when the install is complete." />
           )}
         </SectionCard>
       </div>

@@ -172,8 +172,10 @@ The UPS tab currently supports:
 - Read-only In Progress row summary modal
 - Phase 3 fulfillment modal for In Progress rows
 - Phase 3 device save through `/api/ups-installations/{id}/phase3-devices`
+- Explicit Move to Completed action for selected In Progress rows
+- Completed UPS table from `/api/ups-installations/?status=fulfilled`
 
-UPS completion actions are intentionally deferred to later branches.
+UPS records now stay in In Progress while fulfillment details are saved, then move to Completed only when selected and explicitly closed out.
 
 ## Backend Notes
 
