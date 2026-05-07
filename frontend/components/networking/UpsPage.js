@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
+import { copyTextToClipboard } from '../../lib/clipboard';
 import { deriveUpsEquipment, getUpsTicketLabel, toggleSelection, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
@@ -198,6 +199,47 @@ export default function UpsPage() {
     );
   }
 
+  async function handleCopyServiceEmail() {
+    if (!editingInstall) return;
+
+    try {
+      await copyTextToClipboard(buildServiceEmail(editingInstall, serviceForm));
+      setMessage({ type: 'success', text: 'UPS service response copied to clipboard.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy UPS service response.' });
+    }
+  }
+
+  function buildServiceEmail(install, form) {
+    const lines = [
+      'Hello,',
+      '',
+      'Please see the UPS service response information below:',
+      '',
+      `Ticket #: ${getUpsTicketLabel(install)}`,
+      `School: ${install.school_name}`,
+      `Model: ${form.model || '-'}`,
+      `Defective UPS Serial: ${form.serial_number || '-'}`,
+      `SNMP IP: ${form.snmp_ip || '-'}`,
+      `Hostname: ${form.hostname || '-'}`,
+      `Asset Tag: ${form.asset_tag || '-'}`,
+      `MAC: ${form.mac_address || '-'}`,
+      `Room: ${form.room_number || '-'}`,
+      `MDF/IDF: ${form.idf || '-'}`
+    ];
+
+    if (form.defective_battery_pack_serial) {
+      lines.push(`Defective BP Serial: ${form.defective_battery_pack_serial}`);
+    }
+
+    if (form.battery_pack_1_asset_tag) {
+      lines.push(`BP Asset Tag: ${form.battery_pack_1_asset_tag}`);
+    }
+
+    lines.push('', 'Thank you.');
+    return lines.join('\n');
+  }
+
   return (
     <>
       <PageHeader
@@ -315,6 +357,7 @@ export default function UpsPage() {
             </div>
             <div className={styles.actions}>
               <button type="submit" className="primaryButton">Save Service Info</button>
+              <button type="button" onClick={handleCopyServiceEmail}>Copy Email</button>
               <button type="button" onClick={closeServiceModal}>Cancel</button>
             </div>
           </form>
