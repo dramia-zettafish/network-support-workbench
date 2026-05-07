@@ -119,8 +119,8 @@ The Next.js app currently includes:
 - Networking workspace top tabs with `Operations`, `Tickets`, `UPS`, and `RMA`
 - Functional Operations landing page with mock control-center data
 - Functional Tickets tab
-- Placeholder RMA tab
-- Placeholder UPS tab
+- Functional RMA tab
+- UPS foundation view with Pending and In Progress tables
 
 Shared components currently include:
 
@@ -142,6 +142,26 @@ The Tickets tab currently supports:
 - Pagination
 - Edit modal
 - Delete action
+
+The RMA tab currently supports:
+
+- RMA creation
+- RMA list/search
+- Edit modal
+- Delete action
+- Related open-ticket dropdown
+- Clipboard-ready admin prompt after creation
+
+The UPS tab currently supports:
+
+- Pending installs table from `/api/ups-installations/?status=intake`
+- In Progress table from `/api/ups-installations/?status=scheduled`
+- Search
+- Row selection state
+- Derived equipment display
+- Status labels
+
+UPS scheduling, warehouse email generation, phase editing, and completion actions are intentionally deferred to later branches.
 
 ## Backend Notes
 

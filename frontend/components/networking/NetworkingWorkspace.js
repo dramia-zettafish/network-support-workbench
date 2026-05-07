@@ -6,6 +6,7 @@ import OperationsPage from './OperationsPage';
 import PlaceholderPage from './PlaceholderPage';
 import RmaPage from './RmaPage';
 import TicketsPage from './TicketsPage';
+import UpsPage from './UpsPage';
 import styles from './NetworkingWorkspace.module.css';
 
 const tabs = [
@@ -24,12 +25,7 @@ export default function NetworkingWorkspace() {
       <div className={styles.panel}>
         {activeTab === 'operations' && <OperationsPage onNavigate={setActiveTab} />}
         {activeTab === 'tickets' && <TicketsPage />}
-        {activeTab === 'ups' && (
-          <PlaceholderPage
-            title="UPS"
-            description="UPS intake, scheduling, warehouse email, and fulfillment workflows will be rebuilt here after the shell is stable."
-          />
-        )}
+        {activeTab === 'ups' && <UpsPage />}
         {activeTab === 'rma' && <RmaPage />}
       </div>
     </section>
