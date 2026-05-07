@@ -1,6 +1,66 @@
-# Network Vcode - V3 Snapshot
+# Network Vcode - Networking Workspace
 
-V3 is a working reference branch for the UPS workflow implementation before the next UI/UX redesign pass.
+This branch is the active workspace for the post-migration UI redesign. The FastAPI backend remains in `app/`, and the frontend now runs as a separate Next.js app in `frontend/`.
+
+## Branch Purpose
+
+`networking-workspace` starts from the completed Next.js migration baseline and is intended for the next structural UI pass:
+
+- Shared app shell
+- Sidebar layout
+- Networking workspace
+- Top tab navigation
+- Operations/Dashboard landing page
+- Shared card and table UI system
+
+Major workflow rewrites should wait until the shell and navigation structure are stable.
+
+## Branch Map
+
+- `v3`: legacy stable FastAPI plus vanilla HTML/CSS/JS app with the full Tickets/RMA/UPS workflow.
+- `nextjs-baseline`: completed Next.js migration checkpoint.
+- `nextjs-migration-complete`: tag marking the exact migration baseline commit.
+- `networking-workspace`: active redesign branch built from the Next.js baseline.
+
+## Current Architecture
+
+```text
+repo/
+  app/                 FastAPI backend, database models, schemas, Alembic migrations
+  frontend/            Next.js frontend using the App Router
+  caddy/Caddyfile      Single browser entrypoint and API proxy
+  docker-compose.yml   Local development stack
+```
+
+The backend routes, models, schemas, and database logic are unchanged from the migration baseline.
+
+## Local Services
+
+Docker Compose starts four services:
+
+- `db`: PostgreSQL 16
+- `app`: FastAPI on port `8000` inside Docker
+- `frontend`: Next.js on port `3000`
+- `caddy`: public entrypoint on `http://localhost:8080`
+
+Caddy routes requests as follows:
+
+```text
+/api/*     -> FastAPI app:8000, with /api stripped
+/*         -> Next.js frontend:3000
+```
+
+The Next.js frontend should call backend endpoints through `/api`, for example:
+
+```text
+/api/tickets/
+```
+
+FastAPI still receives the original route:
+
+```text
+/tickets/
+```
 
 ## Run Locally
 
@@ -8,82 +68,108 @@ V3 is a working reference branch for the UPS workflow implementation before the 
 docker compose up --build
 ```
 
-Open the app at:
+Open:
 
 ```text
 http://localhost:8080
 ```
 
-## V3 Focus
+The Next.js dev server is also exposed directly at:
 
-- UPS ticket workflow pipeline
-- NOC schedule table generation
-- Warehouse table generation
-- Outlook-friendly table clipboard support
-- Explicit in-progress and completed workflow states
+```text
+http://localhost:3000
+```
 
-## UPS Workflow
+Use Caddy on port `8080` for normal app testing because it verifies the same frontend/API routing used by the stack.
 
-1. Create a ticket with device type `UPS`.
-2. Enter ticket-level `MDF/IDF`; UPS records inherit this into the IDF field.
-3. Use the Pending UPS table to review:
-   - Ticket #
-   - School
-   - TEA Code
-   - MDF/IDF
-   - Defective UPS Serial
-   - Defective BP Serial
-   - Hostname
-   - Status
-4. Select pending records and choose `Generate NOC Schedule`.
-5. Edit proposed install dates as needed.
-6. Choose `Move to In Progress`.
-   - Records move to the In Progress table.
-   - A NOC schedule table is copied to the clipboard for Outlook.
-7. From In Progress, select records and choose `Generate Warehouse Email`.
-8. Choose `Send Warehouse Email`.
-   - A warehouse table is copied to the clipboard for Outlook.
-9. Open Phase 3 fulfillment from an In Progress row and save:
-   - Asset Tag #
-   - UPS SN
-   - SNMPWEBCARD SN
-   - SNMP IP
-   - BP SN
-   - BP Asset Tag #
-10. Select in-progress records and choose `Move to Completed` when ready.
+## Verification
 
-## Database Notes
+Run a production frontend build:
 
-Current V3 migration head:
+```powershell
+docker compose exec -e NODE_ENV=production frontend npm run build
+```
+
+Check containers:
+
+```powershell
+docker compose ps
+```
+
+Check the Caddy routes:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://localhost:8080/
+Invoke-WebRequest -UseBasicParsing "http://localhost:8080/api/tickets/?limit=1&offset=0"
+```
+
+Expected result: both return HTTP `200`.
+
+## Current Frontend State
+
+The Next.js app currently includes:
+
+- App Router setup
+- Global CSS variable system in `frontend/app/globals.css`
+- Plain CSS modules for component styles
+- Dark theme by default
+- Light mode through `data-theme="light"` on `<html>`
+- Top tab bar with `Tickets`, `RMA`, and `UPS`
+- Functional Tickets tab
+- Placeholder RMA tab
+- Placeholder UPS tab
+
+The Tickets tab currently supports:
+
+- Ticket creation
+- Ticket list
+- Status filter
+- Search
+- Pagination
+- Edit modal
+- Delete action
+
+## Backend Notes
+
+The backend remains FastAPI and PostgreSQL. Alembic runs automatically when the `app` service starts.
+
+Current migration head:
 
 ```text
 012_add_ticket_mdf_idf
 ```
 
-UPS statuses:
-
-```text
-intake
-servicing
-scheduled
-fulfilled
-```
-
-The UI labels `scheduled` records as `In Progress`.
-
-## Clipboard / Outlook Notes
-
-The browser does not reliably open Outlook 2016 with a pre-filled HTML table. Instead, V3 copies tables using `text/html` plus a plain-text fallback. Paste the copied output into an Outlook 2016 message body.
-
-## Existing App Areas
+Important existing backend behavior:
 
 - Tickets default to `Open`.
 - Ticket # is stored as `external_ticket_number` and is limited to 8 characters.
 - TEA code is limited to 3 digits.
 - Ticket edits are limited to `note` and `status`.
-- RMA records can optionally link to an existing open ticket.
-- RMA creation copies an email-ready prompt to the clipboard for the RMA admin.
+- RMA and UPS backend routes still exist, but their Next.js tabs are placeholders on this branch.
 
-## Known Next Step
+## Dependency Notes
 
-The next planned iteration is UI/UX cleanup. This branch is intended as the reference point before that design pass.
+The frontend uses:
+
+- Next.js `16.2.5`
+- React `19.2.0`
+- CSS modules
+- No Tailwind
+- No CSS-in-JS
+
+`frontend/package-lock.json` is committed so installs are repeatable. Generated folders are ignored:
+
+```text
+frontend/node_modules/
+frontend/.next/
+```
+
+## Redesign Guardrails
+
+For the next phase, keep the migration baseline behavior intact while building the shell:
+
+- Do not change FastAPI routes unless a future task explicitly calls for it.
+- Keep API calls behind `/api/*`.
+- Keep colors in CSS variables.
+- Prefer shared layout primitives before adding new workflow-specific screens.
+- Bring RMA and UPS into Next.js after the app shell pattern is stable.
