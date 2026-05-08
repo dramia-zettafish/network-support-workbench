@@ -81,7 +81,7 @@
   border-radius: 8px;
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, auto) auto;
   padding: 0.85rem;
 }
 
@@ -99,6 +99,22 @@
   display: grid;
   gap: 0.4rem;
   justify-items: end;
+}
+
+.responseHeader .responseContext {
+  justify-items: start;
+}
+
+.responseContext span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.responseContext strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
 }
 
 .responseSections {

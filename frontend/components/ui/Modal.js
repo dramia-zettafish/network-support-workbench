@@ -1,10 +1,10 @@
 import styles from './Modal.module.css';
 
-export default function Modal({ title, children, footer, onClose, label }) {
+export default function Modal({ title, children, footer, onClose, label, size = 'default' }) {
   return (
     <div className={styles.backdrop} role="presentation" onMouseDown={onClose}>
       <section
-        className={styles.modal}
+        className={`${styles.modal} ${size === 'wide' ? styles.wide : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={label || title}
