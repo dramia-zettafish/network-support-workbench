@@ -7,6 +7,7 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/network_vcode_schema.sql:/docker-entrypoint-initdb.d/001_network_vcode_schema.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -14,17 +15,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  app:
-    build: .
-    volumes:
-      - ./app:/app
-    environment:
-      DATABASE_URL: postgresql://user:password@db/tickets
-    depends_on:
-      db:
-        condition: service_healthy
-    command: sh -c "cd /app && PYTHONPATH=/app alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build: ./frontend
@@ -50,7 +40,6 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
       - frontend
 
 volumes:

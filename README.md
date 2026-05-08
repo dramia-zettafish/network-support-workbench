@@ -1,17 +1,18 @@
 # Network Vcode - Networking Workspace
 
-This branch is the active workspace for the post-migration UI redesign and local Next.js API migration. The FastAPI backend remains in `app/` as a side-by-side fallback while matching API routes are added under `frontend/app/api`.
+This branch is the active workspace for the standalone Next.js runtime. The app now runs as Next.js pages plus Next.js API routes backed by PostgreSQL.
 
 ## Branch Purpose
 
-`next-api-backend-foundation` starts from the polished Networking workspace UI and is the active branch for the local Next.js API migration:
+`next-api-backend-foundation` starts from the polished Networking workspace UI and is the active branch for the local Next.js/PostgreSQL runtime:
 
 - Node/Postgres database access with `pg`
-- Next.js API route parity for current ticket and UPS behavior
-- Side-by-side FastAPI fallback during migration
+- Next.js API routes for current ticket and UPS behavior
+- PostgreSQL schema initialization from SQL
+- Archived Python backend for temporary reference
 - No auth, production routing, TLS, or deployment hardening in this phase
 
-Major workflow rewrites should wait until API parity is confirmed.
+Major workflow rewrites should wait until the standalone runtime has settled.
 
 ## Branch Map
 
@@ -26,28 +27,29 @@ Major workflow rewrites should wait until API parity is confirmed.
 
 ```text
 repo/
-  app/                 FastAPI backend, database models, schemas, Alembic migrations
+  archive/python-backend/
+                       Archived FastAPI backend, models, schemas, and Alembic migrations
+  db/network_vcode_schema.sql
+                       PostgreSQL schema source for local development
   frontend/            Next.js frontend using the App Router
-  frontend/app/api     Next.js API route migration in progress
+  frontend/app/api     Next.js API routes
   caddy/Caddyfile      Single browser entrypoint and API proxy
   docker-compose.yml   Local development stack
 ```
 
-FastAPI remains available in Docker, and Alembic still owns schema migrations. The local browser/API entrypoint now exercises the Next.js API route foundation for migrated routes.
+PostgreSQL initializes from `db/network_vcode_schema.sql` on a fresh Docker volume. FastAPI and Alembic are archived and are not part of the normal runtime.
 
 ## Local Services
 
-Docker Compose starts four services:
+Docker Compose starts three services:
 
 - `db`: PostgreSQL 16
-- `app`: FastAPI on port `8000` inside Docker
 - `frontend`: Next.js on port `3000`
 - `caddy`: public entrypoint on `http://localhost:8080`
 
 Caddy routes requests as follows:
 
 ```text
-/api/*     -> Next.js frontend:3000 API routes
 /*         -> Next.js frontend:3000
 ```
 
@@ -57,7 +59,7 @@ The Next.js frontend should call backend endpoints through `/api`, for example:
 /api/tickets/
 ```
 
-FastAPI still runs side by side on the Docker network for fallback/parity checks, but Caddy no longer strips `/api` for migrated local requests.
+Next.js owns both page rendering and API routes.
 
 ## Run Locally
 
@@ -101,6 +103,13 @@ Invoke-WebRequest -UseBasicParsing "http://localhost:8080/api/tickets/?limit=1&o
 ```
 
 Expected result: both return HTTP `200`.
+
+To reset local development data and reinitialize the schema from SQL:
+
+```powershell
+docker compose down -v
+docker compose up --build
+```
 
 ## Current Frontend State
 
@@ -192,13 +201,7 @@ The Operations dashboard currently supports:
 
 ## Backend Notes
 
-The backend migration is in progress. FastAPI and PostgreSQL remain in place, and Alembic runs automatically when the `app` service starts. The Next.js API route foundation uses Node.js plus `pg` against the same PostgreSQL database.
-
-Current migration head:
-
-```text
-014_no_replacement_response
-```
+The active backend is implemented with Next.js API routes and Node.js `pg`. The old FastAPI/Alembic backend has been moved to `archive/python-backend/` for temporary reference only.
 
 Important existing backend behavior:
 
@@ -210,7 +213,7 @@ Important existing backend behavior:
 - Device response routes live under `/api/tickets/{ticket_number}/response` in the Next.js API layer.
 - Legacy RMA backend routes remain available but are no longer exposed in the Next.js workspace.
 - Tickets and UPS routes are available through the Next.js API layer under `/api/*`.
-- FastAPI routes are not deleted yet and remain available for side-by-side migration checks.
+- Local schema initialization is handled by `db/network_vcode_schema.sql`.
 
 Migrated Next.js API routes currently include:
 
@@ -233,6 +236,8 @@ Migrated Next.js API routes currently include:
 
 Manual parity verification was completed locally through `http://localhost:8080` after the Next.js API migration foundation was added. Verified workflows include ticket create/edit/delete, device response create/update, UPS ticket to pending, scheduling, rollback, warehouse PO/status update, fulfillment save, completed summary, and Operations dashboard refresh.
 
+Fresh runtime verification was also completed after removing the FastAPI service from Docker Compose. Verified `docker compose up --build` with a fresh PostgreSQL volume, schema initialization from SQL, frontend load, ticket API list/create/edit, UPS auto-create, scheduling, warehouse update, fulfillment save, and rollback.
+
 ## Dependency Notes
 
 The frontend uses:
@@ -250,12 +255,11 @@ frontend/node_modules/
 frontend/.next/
 ```
 
-## Redesign Guardrails
+## Runtime Guardrails
 
-For the next phase, keep the migration baseline behavior intact while building the shell:
+For the next phase, keep the standalone runtime behavior intact:
 
-- Do not change FastAPI routes unless a future task explicitly calls for it.
 - Keep API calls behind `/api/*`.
 - Keep colors in CSS variables.
-- Prefer shared layout primitives before adding new workflow-specific screens.
-- Keep legacy backend routes dormant unless a future cleanup task explicitly removes them.
+- Prefer small route-compatible changes over broad rewrites.
+- Keep the archived Python backend untouched unless a future cleanup task explicitly removes it.
