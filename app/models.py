@@ -1,4 +1,5 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String, Enum
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Enum, UniqueConstraint
+from sqlalchemy.sql import func
 from enum import Enum as PyEnum
 from database import Base
 
@@ -22,6 +23,15 @@ class UpsInstallStatus(PyEnum):
     servicing = "servicing"
     scheduled = "scheduled"
     fulfilled = "fulfilled"
+
+class DeviceResponseResolutionType(PyEnum):
+    permanent = "permanent"
+    temp_rma = "temp_rma"
+
+class DeviceResponseStatus(PyEnum):
+    open = "open"
+    temp_placed = "temp_placed"
+    closed = "closed"
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -53,6 +63,43 @@ class Rma(Base):
     part_number_model = Column(String(100), nullable=False)
     defective_serial_number = Column(String(100), nullable=False)
     issue = Column(String, nullable=False)
+
+
+class DeviceResponse(Base):
+    __tablename__ = "device_responses"
+    __table_args__ = (
+        UniqueConstraint("ticket_id", name="uq_device_responses_ticket_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.ticket_number", ondelete="CASCADE"), nullable=False, index=True)
+    resolution_type = Column(Enum(DeviceResponseResolutionType), default=DeviceResponseResolutionType.permanent, nullable=False)
+    status = Column(Enum(DeviceResponseStatus), default=DeviceResponseStatus.open, nullable=False)
+    response_note = Column(String, nullable=True)
+    temp_response_note = Column(String, nullable=True)
+    rma_response_note = Column(String, nullable=True)
+    defective_model = Column(String(100), nullable=True)
+    defective_sn = Column(String(100), nullable=True)
+    defective_mac = Column(String(32), nullable=True)
+    defective_asset_tag = Column(String(100), nullable=True)
+    defective_room = Column(String(50), nullable=True)
+    replacement_model = Column(String(100), nullable=True)
+    replacement_sn = Column(String(100), nullable=True)
+    replacement_mac = Column(String(32), nullable=True)
+    replacement_hostname = Column(String(100), nullable=True)
+    replacement_ip = Column(String(100), nullable=True)
+    replacement_asset_tag = Column(String(100), nullable=True)
+    replacement_room = Column(String(50), nullable=True)
+    temp_model = Column(String(100), nullable=True)
+    temp_sn = Column(String(100), nullable=True)
+    temp_mac = Column(String(32), nullable=True)
+    temp_hostname = Column(String(100), nullable=True)
+    temp_ip = Column(String(100), nullable=True)
+    temp_asset_tag = Column(String(100), nullable=True)
+    temp_room = Column(String(50), nullable=True)
+    resolution_locked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class UpsInstallation(Base):

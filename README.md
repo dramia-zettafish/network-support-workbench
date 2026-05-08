@@ -142,6 +142,11 @@ The Tickets tab currently supports:
 - Pagination
 - Edit modal
 - Delete action
+- Row-click Device Response modal for AP and switch response workflows
+- Permanent replacement response template copied to clipboard
+- Temporary device plus RMA replacement response templates copied to clipboard
+- Response status badge per ticket row
+- Resolution type locking after the first response is copied
 
 The RMA tab currently supports:
 
@@ -193,7 +198,9 @@ Important existing backend behavior:
 - Ticket # is stored as `external_ticket_number` and is limited to 8 characters.
 - TEA code is limited to 3 digits.
 - Ticket edits are limited to `note` and `status`.
-- RMA and UPS backend routes still exist, but their Next.js tabs are placeholders on this branch.
+- Device responses are stored one per ticket in `device_responses`.
+- Device response routes live under `/tickets/{ticket_number}/response`.
+- RMA and UPS backend routes are available through the Next.js workspace.
 
 ## Dependency Notes
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../lib/api';
+import { copyTextToClipboard } from '../lib/clipboard';
 import DataTable from './ui/DataTable';
 import Modal from './ui/Modal';
 import SectionCard from './ui/SectionCard';
@@ -38,6 +39,73 @@ const statusToneMap = {
   closed: 'neutral'
 };
 
+const responseStatusLabelMap = {
+  open: 'Open',
+  temp_placed: 'Temp Placed',
+  closed: 'Closed'
+};
+
+const responseStatusToneMap = {
+  open: 'success',
+  temp_placed: 'warning',
+  closed: 'neutral'
+};
+
+const emptyResponse = {
+  resolution_type: 'permanent',
+  status: 'open',
+  response_note: '',
+  temp_response_note: '',
+  rma_response_note: '',
+  defective_model: '',
+  defective_sn: '',
+  defective_mac: '',
+  defective_asset_tag: '',
+  defective_room: '',
+  replacement_model: '',
+  replacement_sn: '',
+  replacement_mac: '',
+  replacement_hostname: '',
+  replacement_ip: '',
+  replacement_asset_tag: '',
+  replacement_room: '',
+  temp_model: '',
+  temp_sn: '',
+  temp_mac: '',
+  temp_hostname: '',
+  temp_ip: '',
+  temp_asset_tag: '',
+  temp_room: ''
+};
+
+const defectiveFields = [
+  ['defective_model', 'Model'],
+  ['defective_sn', 'SN'],
+  ['defective_mac', 'MAC'],
+  ['defective_asset_tag', 'Asset Tag'],
+  ['defective_room', 'Room']
+];
+
+const replacementFields = [
+  ['replacement_model', 'Model'],
+  ['replacement_sn', 'SN'],
+  ['replacement_mac', 'MAC'],
+  ['replacement_hostname', 'Hostname'],
+  ['replacement_ip', 'IP'],
+  ['replacement_asset_tag', 'Asset Tag'],
+  ['replacement_room', 'Room']
+];
+
+const tempFields = [
+  ['temp_model', 'Model'],
+  ['temp_sn', 'SN'],
+  ['temp_mac', 'MAC'],
+  ['temp_hostname', 'Hostname'],
+  ['temp_ip', 'IP'],
+  ['temp_asset_tag', 'Asset Tag'],
+  ['temp_room', 'Room']
+];
+
 export default function TicketsTab() {
   const [ticketForm, setTicketForm] = useState(emptyTicket);
   const [tickets, setTickets] = useState([]);
@@ -48,6 +116,11 @@ export default function TicketsTab() {
   const [message, setMessage] = useState(null);
   const [editingTicket, setEditingTicket] = useState(null);
   const [editForm, setEditForm] = useState({ note: '', status: 'open' });
+  const [responseByTicket, setResponseByTicket] = useState({});
+  const [responseTicket, setResponseTicket] = useState(null);
+  const [responseRecord, setResponseRecord] = useState(null);
+  const [responseForm, setResponseForm] = useState(emptyResponse);
+  const [responseLoading, setResponseLoading] = useState(false);
 
   useEffect(() => {
     loadTickets();
@@ -85,12 +158,25 @@ export default function TicketsTab() {
       )
     },
     {
+      key: 'response_status',
+      label: 'Response',
+      render: (ticket) => {
+        const response = responseByTicket[ticket.ticket_number];
+        const status = response?.status || 'open';
+        return (
+          <StatusBadge tone={responseStatusToneMap[status] || 'neutral'}>
+            {responseStatusLabelMap[status] || status}
+          </StatusBadge>
+        );
+      }
+    },
+    {
       key: 'actions',
       label: 'Actions',
       render: (ticket) => (
         <div className={styles.rowActions}>
-          <button type="button" onClick={() => openEditModal(ticket)}>Edit</button>
-          <button type="button" onClick={() => handleDeleteTicket(ticket.ticket_number)}>Delete</button>
+          <button type="button" onClick={(event) => openEditModal(event, ticket)}>Edit</button>
+          <button type="button" onClick={(event) => handleDeleteTicket(event, ticket.ticket_number)}>Delete</button>
         </div>
       )
     }
@@ -110,6 +196,7 @@ export default function TicketsTab() {
 
       const loadedTickets = await apiRequest(`/tickets/?${params}`);
       setTickets(loadedTickets || []);
+      loadTicketResponses(loadedTickets || []);
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load tickets.' });
     } finally {
@@ -164,7 +251,22 @@ export default function TicketsTab() {
     }
   }
 
-  async function handleDeleteTicket(ticketNumber) {
+  async function loadTicketResponses(loadedTickets) {
+    const entries = await Promise.all(
+      loadedTickets.map(async (ticket) => {
+        try {
+          const response = await apiRequest(`/tickets/${ticket.ticket_number}/response`);
+          return [ticket.ticket_number, response];
+        } catch (error) {
+          return [ticket.ticket_number, null];
+        }
+      })
+    );
+    setResponseByTicket(Object.fromEntries(entries));
+  }
+
+  async function handleDeleteTicket(event, ticketNumber) {
+    event.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this ticket?')) return;
 
     try {
@@ -176,7 +278,8 @@ export default function TicketsTab() {
     }
   }
 
-  function openEditModal(ticket) {
+  function openEditModal(event, ticket) {
+    event.stopPropagation();
     setEditingTicket(ticket);
     setEditForm({
       note: ticket.note || '',
@@ -191,6 +294,200 @@ export default function TicketsTab() {
 
   function updateTicketForm(field, value) {
     setTicketForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function openResponseModal(ticket) {
+    setResponseTicket(ticket);
+    setResponseRecord(null);
+    setResponseForm(emptyResponse);
+    setResponseLoading(true);
+
+    try {
+      const response = await apiRequest(`/tickets/${ticket.ticket_number}/response`);
+      setResponseRecord(response);
+      setResponseForm(responseToForm(response));
+    } catch (error) {
+      setResponseRecord(null);
+      setResponseForm(emptyResponse);
+    } finally {
+      setResponseLoading(false);
+    }
+  }
+
+  function closeResponseModal() {
+    setResponseTicket(null);
+    setResponseRecord(null);
+    setResponseForm(emptyResponse);
+    setResponseLoading(false);
+  }
+
+  function responseToForm(response) {
+    return Object.fromEntries(
+      Object.keys(emptyResponse).map((key) => [key, response[key] || emptyResponse[key]])
+    );
+  }
+
+  function updateResponseForm(field, value) {
+    setResponseForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function normalizeResponsePayload(statusOverride) {
+    const payload = Object.fromEntries(
+      Object.entries(responseForm).map(([key, value]) => [key, typeof value === 'string' ? value.trim() || null : value])
+    );
+    payload.resolution_type = responseForm.resolution_type;
+    payload.status = statusOverride || responseForm.status || 'open';
+    return payload;
+  }
+
+  async function saveResponse(statusOverride) {
+    if (!responseTicket) return null;
+    const payload = normalizeResponsePayload(statusOverride);
+    const endpoint = `/tickets/${responseTicket.ticket_number}/response`;
+    const savedResponse = responseRecord
+      ? await apiRequest(endpoint, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+
+    setResponseRecord(savedResponse);
+    setResponseForm(responseToForm(savedResponse));
+    setResponseByTicket((current) => ({ ...current, [responseTicket.ticket_number]: savedResponse }));
+    return savedResponse;
+  }
+
+  async function handleSaveResponseDraft() {
+    try {
+      await saveResponse();
+      setMessage({ type: 'success', text: 'Device response saved.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save device response.' });
+    }
+  }
+
+  async function handleCopyPermanentResponse() {
+    try {
+      await saveResponse('closed');
+      await copyTextToClipboard(buildPermanentResponseText(responseForm));
+      setMessage({ type: 'success', text: 'Permanent replacement response copied.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy permanent replacement response.' });
+    }
+  }
+
+  async function handleCopyTempResponse() {
+    try {
+      await saveResponse('temp_placed');
+      await copyTextToClipboard(buildTempResponseText(responseForm));
+      setMessage({ type: 'success', text: 'Temporary device response copied.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy temporary device response.' });
+    }
+  }
+
+  async function handleCopyRmaResponse() {
+    try {
+      await saveResponse('closed');
+      await copyTextToClipboard(buildRmaResponseText(responseForm));
+      setMessage({ type: 'success', text: 'RMA replacement response copied.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy RMA replacement response.' });
+    }
+  }
+
+  function getGreeting() {
+    return new Date().getHours() < 12 ? 'Good Morning,' : 'Good Afternoon,';
+  }
+
+  function fieldLine(label, value) {
+    return `${label}: ${value || '-'}`;
+  }
+
+  function buildPermanentResponseText(form) {
+    return [
+      getGreeting(),
+      '',
+      form.response_note || '',
+      '',
+      'Defective Device Information:',
+      fieldLine('Model', form.defective_model),
+      fieldLine('SN', form.defective_sn),
+      fieldLine('MAC', form.defective_mac),
+      fieldLine('Asset Tag', form.defective_asset_tag),
+      fieldLine('Room', form.defective_room),
+      '',
+      'Replacement Device Information:',
+      fieldLine('Model', form.replacement_model),
+      fieldLine('SN', form.replacement_sn),
+      fieldLine('MAC', form.replacement_mac),
+      fieldLine('Hostname', form.replacement_hostname),
+      fieldLine('IP', form.replacement_ip),
+      fieldLine('Asset Tag', form.replacement_asset_tag),
+      fieldLine('Room', form.replacement_room)
+    ].join('\n');
+  }
+
+  function buildTempResponseText(form) {
+    return [
+      getGreeting(),
+      '',
+      form.temp_response_note || '',
+      '',
+      'Defective Device Information:',
+      fieldLine('Model', form.defective_model),
+      fieldLine('SN', form.defective_sn),
+      fieldLine('MAC', form.defective_mac),
+      fieldLine('Asset Tag', form.defective_asset_tag),
+      fieldLine('Room', form.defective_room),
+      '',
+      'Temporary Device Information:',
+      fieldLine('Model', form.temp_model),
+      fieldLine('SN', form.temp_sn),
+      fieldLine('MAC', form.temp_mac),
+      fieldLine('Asset Tag', form.temp_asset_tag),
+      fieldLine('Hostname', form.temp_hostname),
+      fieldLine('IP', form.temp_ip),
+      fieldLine('Room', form.temp_room)
+    ].join('\n');
+  }
+
+  function buildRmaResponseText(form) {
+    return [
+      getGreeting(),
+      '',
+      form.rma_response_note || '',
+      '',
+      'Replacement Device Information:',
+      fieldLine('Model', form.replacement_model),
+      fieldLine('SN', form.replacement_sn),
+      fieldLine('MAC', form.replacement_mac),
+      fieldLine('Hostname', form.replacement_hostname),
+      fieldLine('IP', form.replacement_ip),
+      fieldLine('Asset Tag', form.replacement_asset_tag),
+      fieldLine('Room', form.replacement_room)
+    ].join('\n');
+  }
+
+  const responseTypeLocked = Boolean(responseRecord?.resolution_locked_at);
+  const rmaPhaseUnlocked = responseForm.status === 'temp_placed' || responseForm.status === 'closed';
+
+  function renderDeviceFields(title, fields, disabled = false) {
+    return (
+      <div className={styles.responseFieldset}>
+        <h4>{title}</h4>
+        <div className={styles.responseGrid}>
+          {fields.map(([field, label]) => (
+            <label key={field}>
+              {label}
+              <input
+                value={responseForm[field]}
+                onChange={(event) => updateResponseForm(field, event.target.value)}
+                maxLength={field.includes('mac') ? 32 : field.includes('room') ? 50 : 100}
+                disabled={disabled}
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -312,6 +609,7 @@ export default function TicketsTab() {
               getRowKey={(ticket) => ticket.ticket_number}
               emptyTitle="No tickets found"
               emptyDescription="Create a ticket or adjust the current filters."
+              onRowClick={openResponseModal}
             />
           )}
 
@@ -334,6 +632,116 @@ export default function TicketsTab() {
           </div>
         </SectionCard>
       </div>
+
+      {responseTicket && (
+        <Modal title={`Device Response - ${responseTicket.external_ticket_number || responseTicket.ticket_number}`} onClose={closeResponseModal}>
+          {responseLoading ? (
+            <p className="mutedText">Loading response workflow...</p>
+          ) : (
+            <div className={styles.responseModal}>
+              <div className={styles.responseHeader}>
+                <label>
+                  Resolution Type
+                  <select
+                    value={responseForm.resolution_type}
+                    onChange={(event) => updateResponseForm('resolution_type', event.target.value)}
+                    disabled={responseTypeLocked}
+                  >
+                    <option value="permanent">Permanent Replacement</option>
+                    <option value="temp_rma">Temporary + RMA</option>
+                  </select>
+                </label>
+                <div>
+                  <span className="mutedText">Response Status</span>
+                  <StatusBadge tone={responseStatusToneMap[responseForm.status] || 'neutral'}>
+                    {responseStatusLabelMap[responseForm.status] || responseForm.status}
+                  </StatusBadge>
+                </div>
+              </div>
+
+              {responseTypeLocked && (
+                <p className="mutedText">Resolution type is locked because a response has already been copied.</p>
+              )}
+
+              {responseForm.resolution_type === 'permanent' ? (
+                <>
+                  <label className={styles.fullWidthLabel}>
+                    Response Note
+                    <textarea
+                      value={responseForm.response_note}
+                      onChange={(event) => updateResponseForm('response_note', event.target.value)}
+                      maxLength={2000}
+                      rows={4}
+                    />
+                  </label>
+                  <div className={styles.responseSections}>
+                    {renderDeviceFields('Defective Device', defectiveFields)}
+                    {renderDeviceFields('Replacement Device', replacementFields)}
+                  </div>
+                  <div className={styles.actions}>
+                    <button type="button" className="primaryButton" onClick={handleCopyPermanentResponse}>
+                      Copy Response
+                    </button>
+                    <button type="button" onClick={handleSaveResponseDraft}>Save Draft</button>
+                    <button type="button" onClick={closeResponseModal}>Close</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <section className={styles.responsePhase}>
+                    <h3>Phase 1 - Temporary Device</h3>
+                    <label className={styles.fullWidthLabel}>
+                      Temp Response Note
+                      <textarea
+                        value={responseForm.temp_response_note}
+                        onChange={(event) => updateResponseForm('temp_response_note', event.target.value)}
+                        maxLength={2000}
+                        rows={4}
+                      />
+                    </label>
+                    <div className={styles.responseSections}>
+                      {renderDeviceFields('Defective Device', defectiveFields)}
+                      {renderDeviceFields('Temporary Device', tempFields)}
+                    </div>
+                    <div className={styles.actions}>
+                      <button type="button" className="primaryButton" onClick={handleCopyTempResponse}>
+                        Copy Temp Response
+                      </button>
+                      <button type="button" onClick={handleSaveResponseDraft}>Save Draft</button>
+                    </div>
+                  </section>
+
+                  <section className={styles.responsePhase}>
+                    <h3>Phase 2 - RMA Replacement</h3>
+                    {!rmaPhaseUnlocked && (
+                      <p className="mutedText">Copy the temporary device response before adding the RMA replacement response.</p>
+                    )}
+                    <label className={styles.fullWidthLabel}>
+                      RMA Response Note
+                      <textarea
+                        value={responseForm.rma_response_note}
+                        onChange={(event) => updateResponseForm('rma_response_note', event.target.value)}
+                        maxLength={2000}
+                        rows={4}
+                        disabled={!rmaPhaseUnlocked}
+                      />
+                    </label>
+                    <div className={styles.responseSections}>
+                      {renderDeviceFields('Replacement Device', replacementFields, !rmaPhaseUnlocked)}
+                    </div>
+                    <div className={styles.actions}>
+                      <button type="button" className="primaryButton" onClick={handleCopyRmaResponse} disabled={!rmaPhaseUnlocked}>
+                        Copy RMA Response
+                      </button>
+                      <button type="button" onClick={closeResponseModal}>Close</button>
+                    </div>
+                  </section>
+                </>
+              )}
+            </div>
+          )}
+        </Modal>
+      )}
 
       {editingTicket && (
         <Modal title="Edit Ticket" onClose={closeEditModal}>

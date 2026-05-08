@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from enum import Enum
+from datetime import datetime
 
 class DeviceType(str, Enum):
     switch = "switch"
@@ -17,6 +18,15 @@ class UpsInstallStatus(str, Enum):
     servicing = "servicing"
     scheduled = "scheduled"
     fulfilled = "fulfilled"
+
+class DeviceResponseResolutionType(str, Enum):
+    permanent = "permanent"
+    temp_rma = "temp_rma"
+
+class DeviceResponseStatus(str, Enum):
+    open = "open"
+    temp_placed = "temp_placed"
+    closed = "closed"
 
 
 class UpsScheduleDay(str, Enum):
@@ -85,6 +95,77 @@ class RmaUpdate(BaseModel):
 
 class Rma(RmaBase):
     rma_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class DeviceResponseBase(BaseModel):
+    resolution_type: DeviceResponseResolutionType = DeviceResponseResolutionType.permanent
+    status: DeviceResponseStatus = DeviceResponseStatus.open
+    response_note: Optional[str] = Field(None, max_length=2000)
+    temp_response_note: Optional[str] = Field(None, max_length=2000)
+    rma_response_note: Optional[str] = Field(None, max_length=2000)
+    defective_model: Optional[str] = Field(None, max_length=100)
+    defective_sn: Optional[str] = Field(None, max_length=100)
+    defective_mac: Optional[str] = Field(None, max_length=32)
+    defective_asset_tag: Optional[str] = Field(None, max_length=100)
+    defective_room: Optional[str] = Field(None, max_length=50)
+    replacement_model: Optional[str] = Field(None, max_length=100)
+    replacement_sn: Optional[str] = Field(None, max_length=100)
+    replacement_mac: Optional[str] = Field(None, max_length=32)
+    replacement_hostname: Optional[str] = Field(None, max_length=100)
+    replacement_ip: Optional[str] = Field(None, max_length=100)
+    replacement_asset_tag: Optional[str] = Field(None, max_length=100)
+    replacement_room: Optional[str] = Field(None, max_length=50)
+    temp_model: Optional[str] = Field(None, max_length=100)
+    temp_sn: Optional[str] = Field(None, max_length=100)
+    temp_mac: Optional[str] = Field(None, max_length=32)
+    temp_hostname: Optional[str] = Field(None, max_length=100)
+    temp_ip: Optional[str] = Field(None, max_length=100)
+    temp_asset_tag: Optional[str] = Field(None, max_length=100)
+    temp_room: Optional[str] = Field(None, max_length=50)
+
+
+class DeviceResponseCreate(DeviceResponseBase):
+    pass
+
+
+class DeviceResponseUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resolution_type: Optional[DeviceResponseResolutionType] = None
+    status: Optional[DeviceResponseStatus] = None
+    response_note: Optional[str] = Field(None, max_length=2000)
+    temp_response_note: Optional[str] = Field(None, max_length=2000)
+    rma_response_note: Optional[str] = Field(None, max_length=2000)
+    defective_model: Optional[str] = Field(None, max_length=100)
+    defective_sn: Optional[str] = Field(None, max_length=100)
+    defective_mac: Optional[str] = Field(None, max_length=32)
+    defective_asset_tag: Optional[str] = Field(None, max_length=100)
+    defective_room: Optional[str] = Field(None, max_length=50)
+    replacement_model: Optional[str] = Field(None, max_length=100)
+    replacement_sn: Optional[str] = Field(None, max_length=100)
+    replacement_mac: Optional[str] = Field(None, max_length=32)
+    replacement_hostname: Optional[str] = Field(None, max_length=100)
+    replacement_ip: Optional[str] = Field(None, max_length=100)
+    replacement_asset_tag: Optional[str] = Field(None, max_length=100)
+    replacement_room: Optional[str] = Field(None, max_length=50)
+    temp_model: Optional[str] = Field(None, max_length=100)
+    temp_sn: Optional[str] = Field(None, max_length=100)
+    temp_mac: Optional[str] = Field(None, max_length=32)
+    temp_hostname: Optional[str] = Field(None, max_length=100)
+    temp_ip: Optional[str] = Field(None, max_length=100)
+    temp_asset_tag: Optional[str] = Field(None, max_length=100)
+    temp_room: Optional[str] = Field(None, max_length=50)
+
+
+class DeviceResponse(DeviceResponseBase):
+    id: int
+    ticket_id: int
+    resolution_locked_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

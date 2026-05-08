@@ -70,15 +70,84 @@
   padding-top: 0.85rem;
 }
 
+.responseModal {
+  display: grid;
+  gap: 1rem;
+}
+
+.responseHeader {
+  align-items: end;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  padding: 0.85rem;
+}
+
+.responseHeader label,
+.fullWidthLabel,
+.responseGrid label {
+  color: var(--text-secondary);
+  display: grid;
+  font-weight: 600;
+  gap: 0.4rem;
+}
+
+.responseHeader > div {
+  align-items: end;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: end;
+}
+
+.responseSections {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.responseFieldset,
+.responsePhase {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.85rem;
+}
+
+.responseFieldset h4,
+.responsePhase h3 {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.responseGrid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 @media (max-width: 1060px) {
   .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .responseSections {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 620px) {
-  .formGrid {
+  .formGrid,
+  .responseHeader,
+  .responseGrid {
     grid-template-columns: 1fr;
+  }
+
+  .responseHeader > div {
+    justify-items: start;
   }
 
   .filters {

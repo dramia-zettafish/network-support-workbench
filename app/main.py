@@ -2,10 +2,10 @@ from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from database import get_db
-from models import Rma, Ticket, UpsInstallation
-from schemas import Rma as RmaSchema, RmaCreate, RmaUpdate, Ticket as TicketSchema, TicketCreate, TicketUpdate, Status, UpsInstallStatus, UpsInstallation as UpsInstallationSchema, UpsInstallationUpdate, UpsScheduleCustomRequest, UpsScheduleRequest, UpsScheduleResponse, UpsScheduleRow
+from models import DeviceResponse, DeviceResponseStatus as DeviceResponseModelStatus, Rma, Ticket, UpsInstallation
+from schemas import DeviceResponse as DeviceResponseSchema, DeviceResponseCreate, DeviceResponseUpdate, Rma as RmaSchema, RmaCreate, RmaUpdate, Ticket as TicketSchema, TicketCreate, TicketUpdate, Status, UpsInstallStatus, UpsInstallation as UpsInstallationSchema, UpsInstallationUpdate, UpsScheduleCustomRequest, UpsScheduleRequest, UpsScheduleResponse, UpsScheduleRow
 
 app = FastAPI(
     title="Ticket Tracking API",
@@ -40,6 +40,14 @@ def build_schedule_row(ups: UpsInstallation) -> UpsScheduleRow:
         proposed_install_date=ups.proposed_install_date or "",
         equipment=derive_ups_equipment(ups),
     )
+
+
+def is_locking_response_status(status) -> bool:
+    return getattr(status, "value", status) in {
+        DeviceResponseModelStatus.temp_placed.value,
+        DeviceResponseModelStatus.closed.value,
+    }
+
 
 @app.post("/tickets/", response_model=TicketSchema, status_code=201)
 def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db)):
@@ -118,6 +126,87 @@ def delete_ticket(ticket_number: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error deleting ticket")
+
+
+@app.get("/tickets/{ticket_number}/response", response_model=DeviceResponseSchema)
+def get_ticket_response(ticket_number: int, db: Session = Depends(get_db)):
+    try:
+        db_response = db.query(DeviceResponse).filter(DeviceResponse.ticket_id == ticket_number).first()
+        if not db_response:
+            raise HTTPException(status_code=404, detail="Ticket response not found")
+        return db_response
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error retrieving ticket response")
+
+
+@app.post("/tickets/{ticket_number}/response", response_model=DeviceResponseSchema, status_code=201)
+def create_ticket_response(
+    ticket_number: int,
+    response: DeviceResponseCreate,
+    db: Session = Depends(get_db)
+):
+    try:
+        db_ticket = db.query(Ticket).filter(Ticket.ticket_number == ticket_number).first()
+        if not db_ticket:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+
+        existing_response = db.query(DeviceResponse).filter(DeviceResponse.ticket_id == ticket_number).first()
+        if existing_response:
+            raise HTTPException(status_code=400, detail="Ticket response already exists")
+
+        db_response = DeviceResponse(ticket_id=ticket_number, **response.model_dump())
+        if is_locking_response_status(db_response.status):
+            db_response.resolution_locked_at = datetime.now(timezone.utc)
+
+        db.add(db_response)
+        db.commit()
+        db.refresh(db_response)
+        return db_response
+    except HTTPException:
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Invalid ticket response data")
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error creating ticket response")
+
+
+@app.patch("/tickets/{ticket_number}/response", response_model=DeviceResponseSchema)
+def update_ticket_response(
+    ticket_number: int,
+    response_update: DeviceResponseUpdate,
+    db: Session = Depends(get_db)
+):
+    try:
+        db_response = db.query(DeviceResponse).filter(DeviceResponse.ticket_id == ticket_number).first()
+        if not db_response:
+            raise HTTPException(status_code=404, detail="Ticket response not found")
+
+        update_data = response_update.model_dump(exclude_unset=True)
+        if db_response.resolution_locked_at and "resolution_type" in update_data:
+            update_data.pop("resolution_type")
+
+        for key, value in update_data.items():
+            setattr(db_response, key, value)
+
+        if (
+            "status" in update_data
+            and is_locking_response_status(db_response.status)
+            and not db_response.resolution_locked_at
+        ):
+            db_response.resolution_locked_at = datetime.now(timezone.utc)
+
+        db.commit()
+        db.refresh(db_response)
+        return db_response
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error updating ticket response")
 
 
 @app.post("/rmas/", response_model=RmaSchema, status_code=201)
