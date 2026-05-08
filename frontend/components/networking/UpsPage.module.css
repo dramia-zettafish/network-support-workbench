@@ -9,6 +9,10 @@
   max-width: 420px;
 }
 
+.completedSearch {
+  min-width: min(320px, 100%);
+}
+
 .message {
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -63,6 +67,19 @@
 .rowActions button {
   min-height: 2rem;
   padding: 0.35rem 0.65rem;
+}
+
+.dateBadge {
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
+  border-radius: 999px;
+  color: var(--status-warning-text);
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.38rem 0.58rem;
+  white-space: nowrap;
 }
 
 .intakeGrid {
@@ -214,6 +231,10 @@
 .previewTable td {
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+.previewTable input {
+  min-width: 120px;
 }
 
 .previewTable tbody tr:last-child td {

@@ -21,8 +21,8 @@ export default function NetworkingWorkspace() {
       <TabNavigation tabs={tabs} activeTab={activeTab} onChange={setActiveTab} label="Networking workflows" />
       <div className={styles.panel}>
         {activeTab === 'operations' && <OperationsPage onNavigate={setActiveTab} />}
-        {activeTab === 'tickets' && <TicketsPage />}
-        {activeTab === 'ups' && <UpsPage />}
+        {activeTab === 'tickets' && <TicketsPage onNavigate={setActiveTab} />}
+        {activeTab === 'ups' && <UpsPage onNavigate={setActiveTab} />}
       </div>
     </section>
   );

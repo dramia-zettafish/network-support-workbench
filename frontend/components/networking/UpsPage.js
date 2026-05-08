@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
-import { copyHtmlToClipboard, copyTextToClipboard } from '../../lib/clipboard';
+import { copyHtmlToClipboard } from '../../lib/clipboard';
 import { deriveUpsEquipment, getUpsTicketLabel, toggleSelection, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
@@ -11,19 +11,6 @@ import PageHeader from '../ui/PageHeader';
 import SectionCard from '../ui/SectionCard';
 import StatusBadge from '../ui/StatusBadge';
 import styles from './UpsPage.module.css';
-
-const emptyServiceForm = {
-  model: '',
-  serial_number: '',
-  snmp_ip: '',
-  hostname: '',
-  asset_tag: '',
-  mac_address: '',
-  room_number: '',
-  defective_battery_pack_serial: '',
-  battery_pack_1_asset_tag: '',
-  idf: ''
-};
 
 const emptyFulfillmentForm = {
   asset_tag: '',
@@ -34,28 +21,30 @@ const emptyFulfillmentForm = {
   new_battery_pack_asset_tag: ''
 };
 
-function getTodayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+function getNextMondayIsoDate() {
+  const date = new Date();
+  const day = date.getDay();
+  const daysUntilNextMonday = ((8 - day) % 7) || 7;
+  date.setDate(date.getDate() + daysUntilNextMonday);
+  return date.toISOString().slice(0, 10);
 }
 
-export default function UpsPage() {
+export default function UpsPage({ onNavigate }) {
   const [pendingInstalls, setPendingInstalls] = useState([]);
   const [inProgressInstalls, setInProgressInstalls] = useState([]);
   const [completedInstalls, setCompletedInstalls] = useState([]);
-  const [search, setSearch] = useState('');
+  const [completedSearch, setCompletedSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState(new Set());
   const [selectedInProgressIds, setSelectedInProgressIds] = useState(new Set());
-  const [editingInstall, setEditingInstall] = useState(null);
-  const [serviceForm, setServiceForm] = useState(emptyServiceForm);
   const [scheduleRows, setScheduleRows] = useState([]);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [warehouseRows, setWarehouseRows] = useState([]);
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
-  const [summaryInstall, setSummaryInstall] = useState(null);
   const [fulfillmentInstall, setFulfillmentInstall] = useState(null);
   const [fulfillmentForm, setFulfillmentForm] = useState(emptyFulfillmentForm);
+  const [completedSummaryInstall, setCompletedSummaryInstall] = useState(null);
 
   useEffect(() => {
     loadUpsInstallations();
@@ -68,19 +57,35 @@ export default function UpsPage() {
   }, [message]);
 
   const visiblePendingInstalls = useMemo(
-    () => filterInstallations(pendingInstalls, search),
-    [pendingInstalls, search]
+    () => pendingInstalls,
+    [pendingInstalls]
   );
 
   const visibleInProgressInstalls = useMemo(
-    () => filterInstallations(inProgressInstalls, search),
-    [inProgressInstalls, search]
+    () => inProgressInstalls,
+    [inProgressInstalls]
   );
 
   const visibleCompletedInstalls = useMemo(
-    () => filterInstallations(completedInstalls, search),
-    [completedInstalls, search]
+    () => filterInstallations(completedInstalls, completedSearch),
+    [completedInstalls, completedSearch]
   );
+
+  const visibleScheduledInProgressIds = useMemo(
+    () => visibleInProgressInstalls
+      .filter((install) => install.status === 'scheduled')
+      .map((install) => install.ups_installation_id),
+    [visibleInProgressInstalls]
+  );
+
+  const selectedScheduledInProgressCount = useMemo(
+    () => visibleScheduledInProgressIds.filter((id) => selectedInProgressIds.has(id)).length,
+    [selectedInProgressIds, visibleScheduledInProgressIds]
+  );
+
+  const allVisibleScheduledSelected =
+    visibleScheduledInProgressIds.length > 0 &&
+    selectedScheduledInProgressCount === visibleScheduledInProgressIds.length;
 
   const pendingColumns = [
     {
@@ -110,15 +115,6 @@ export default function UpsPage() {
           {upsStatusLabelMap[install.status] || install.status}
         </StatusBadge>
       )
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (install) => (
-        <button type="button" onClick={() => openServiceModal(install)}>
-          Service Info
-        </button>
-      )
     }
   ];
 
@@ -131,6 +127,7 @@ export default function UpsPage() {
           type="checkbox"
           aria-label={`Select in progress UPS ticket ${getUpsTicketLabel(install)}`}
           checked={selectedInProgressIds.has(install.ups_installation_id)}
+          onClick={(event) => event.stopPropagation()}
           onChange={() => toggleSelection(setSelectedInProgressIds, install.ups_installation_id)}
         />
       )
@@ -138,10 +135,12 @@ export default function UpsPage() {
     { key: 'ticket', label: 'Ticket #', render: getUpsTicketLabel },
     { key: 'school_name', label: 'School' },
     { key: 'idf', label: 'IDF', render: (install) => install.idf || '-' },
-    { key: 'proposed_install_date', label: 'Install Date', render: (install) => install.proposed_install_date || '-' },
+    {
+      key: 'proposed_install_date',
+      label: 'Install Date',
+      render: (install) => <DateBadge value={install.proposed_install_date} />
+    },
     { key: 'equipment', label: 'Equipment', render: deriveUpsEquipment },
-    { key: 'ups_po', label: 'UPS PO', render: (install) => install.ups_po || '-' },
-    { key: 'bp_po', label: 'BP PO', render: (install) => install.bp_po || '-' },
     {
       key: 'status',
       label: 'Status',
@@ -156,11 +155,8 @@ export default function UpsPage() {
       label: 'Actions',
       render: (install) => (
         <div className={styles.rowActions}>
-          <button type="button" onClick={() => setSummaryInstall(install)}>
-            Summary
-          </button>
-          <button type="button" onClick={() => openFulfillmentModal(install)}>
-            Fulfillment
+          <button type="button" onClick={(event) => handleRollbackFromRow(event, install)}>
+            Remove
           </button>
         </div>
       )
@@ -170,11 +166,9 @@ export default function UpsPage() {
   const completedColumns = [
     { key: 'ticket', label: 'Ticket #', render: getUpsTicketLabel },
     { key: 'school_name', label: 'School' },
-    { key: 'idf', label: 'IDF', render: (install) => install.idf || '-' },
-    { key: 'proposed_install_date', label: 'Install Date', render: (install) => install.proposed_install_date || '-' },
-    { key: 'equipment', label: 'Equipment', render: deriveUpsEquipment },
     { key: 'asset_tag', label: 'Asset Tag #', render: (install) => install.asset_tag || '-' },
     { key: 'new_serial_number', label: 'UPS SN', render: (install) => install.new_serial_number || '-' },
+    { key: 'mac_address', label: 'MAC', render: (install) => install.mac_address || '-' },
     { key: 'snmp_ip', label: 'SNMP IP', render: (install) => install.snmp_ip || '-' },
     {
       key: 'status',
@@ -190,13 +184,14 @@ export default function UpsPage() {
   async function loadUpsInstallations() {
     setLoading(true);
     try {
-      const [pending, inProgress, completed] = await Promise.all([
+      const [pending, scheduled, servicing, completed] = await Promise.all([
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0'),
+        apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=fulfilled&limit=1000&offset=0')
       ]);
       setPendingInstalls(pending || []);
-      setInProgressInstalls(inProgress || []);
+      setInProgressInstalls([...(scheduled || []), ...(servicing || [])]);
       setCompletedInstalls(completed || []);
       setSelectedPendingIds(new Set());
       setSelectedInProgressIds(new Set());
@@ -213,95 +208,6 @@ export default function UpsPage() {
     return installs.filter((install) => Object.values(install).join(' ').toLowerCase().includes(normalizedSearch));
   }
 
-  function openServiceModal(install) {
-    setEditingInstall(install);
-    setServiceForm({
-      model: install.model || '',
-      serial_number: install.serial_number || '',
-      snmp_ip: install.snmp_ip || '',
-      hostname: install.hostname || '',
-      asset_tag: install.asset_tag || '',
-      mac_address: install.mac_address || '',
-      room_number: install.room_number || '',
-      defective_battery_pack_serial: install.defective_battery_pack_serial || '',
-      battery_pack_1_asset_tag: install.battery_pack_1_asset_tag || '',
-      idf: install.idf || ''
-    });
-  }
-
-  function closeServiceModal() {
-    setEditingInstall(null);
-    setServiceForm(emptyServiceForm);
-  }
-
-  function updateServiceForm(field, value) {
-    setServiceForm((current) => ({ ...current, [field]: value }));
-  }
-
-  async function handleSaveServiceInfo(event) {
-    event.preventDefault();
-    if (!editingInstall) return;
-
-    try {
-      await apiRequest(`/ups-installations/${editingInstall.ups_installation_id}/phase2`, {
-        method: 'PATCH',
-        body: JSON.stringify(normalizeServicePayload(serviceForm))
-      });
-      setMessage({ type: 'success', text: 'UPS service info saved.' });
-      closeServiceModal();
-      loadUpsInstallations();
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save UPS service info.' });
-    }
-  }
-
-  function normalizeServicePayload(form) {
-    return Object.fromEntries(
-      Object.entries(form).map(([key, value]) => [key, value.trim() || null])
-    );
-  }
-
-  async function handleCopyServiceEmail() {
-    if (!editingInstall) return;
-
-    try {
-      await copyTextToClipboard(buildServiceEmail(editingInstall, serviceForm));
-      setMessage({ type: 'success', text: 'UPS service response copied to clipboard.' });
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy UPS service response.' });
-    }
-  }
-
-  function buildServiceEmail(install, form) {
-    const lines = [
-      'Hello,',
-      '',
-      'Please see the UPS service response information below:',
-      '',
-      `Ticket #: ${getUpsTicketLabel(install)}`,
-      `School: ${install.school_name}`,
-      `Model: ${form.model || '-'}`,
-      `Defective UPS Serial: ${form.serial_number || '-'}`,
-      `SNMP IP: ${form.snmp_ip || '-'}`,
-      `Hostname: ${form.hostname || '-'}`,
-      `Asset Tag: ${form.asset_tag || '-'}`,
-      `MAC: ${form.mac_address || '-'}`,
-      `Room: ${form.room_number || '-'}`,
-      `MDF/IDF: ${form.idf || '-'}`
-    ];
-
-    if (form.defective_battery_pack_serial) {
-      lines.push(`Defective BP Serial: ${form.defective_battery_pack_serial}`);
-    }
-
-    if (form.battery_pack_1_asset_tag) {
-      lines.push(`BP Asset Tag: ${form.battery_pack_1_asset_tag}`);
-    }
-
-    lines.push('', 'Thank you.');
-    return lines.join('\n');
-  }
-
   function openScheduleModal() {
     const selectedRows = pendingInstalls
       .filter((install) => selectedPendingIds.has(install.ups_installation_id))
@@ -310,7 +216,7 @@ export default function UpsPage() {
         ticket_number: getUpsTicketLabel(install),
         idf: install.idf || '',
         school_name: install.school_name,
-        proposed_install_date: install.proposed_install_date || getTodayIsoDate(),
+        proposed_install_date: install.proposed_install_date || getNextMondayIsoDate(),
         equipment: deriveUpsEquipment(install)
       }));
 
@@ -336,6 +242,17 @@ export default function UpsPage() {
           : row
       )
     );
+  }
+
+  async function handleRollbackFromRow(event, install) {
+    event.stopPropagation();
+    try {
+      await apiRequest(`/ups/${install.ups_installation_id}/rollback`, { method: 'PATCH' });
+      setMessage({ type: 'success', text: 'UPS record sent back to Pending.' });
+      loadUpsInstallations();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to send UPS record back to Pending.' });
+    }
   }
 
   async function handleMoveToInProgress() {
@@ -407,23 +324,23 @@ export default function UpsPage() {
 
   function openWarehouseModal() {
     const rows = inProgressInstalls
-      .filter((install) => selectedInProgressIds.has(install.ups_installation_id))
+      .filter((install) => install.status === 'scheduled' && selectedInProgressIds.has(install.ups_installation_id))
       .map((install) => ({
         ups_installation_id: install.ups_installation_id,
         ticket_number: getUpsTicketLabel(install),
-        idf: install.idf || '',
+        idf: warehouseValue(install.idf),
         school_name: install.school_name,
-        install_date: install.proposed_install_date || '',
+        install_date: warehouseValue(install.proposed_install_date),
         type: 'Replace',
         equipment: deriveUpsEquipment(install),
-        ups_serial: '',
-        ups_po: install.ups_po || '',
-        bp_serials: '',
-        bp_po: install.bp_po || ''
+        ups_serial: 'N/A',
+        ups_po: warehouseValue(install.ups_po),
+        bp_serials: 'N/A',
+        bp_po: warehouseValue(install.bp_po)
       }));
 
     if (rows.length === 0) {
-      setMessage({ type: 'error', text: 'Select at least one in-progress UPS record first.' });
+      setMessage({ type: 'error', text: 'Select at least one scheduled UPS record first.' });
       return;
     }
 
@@ -434,6 +351,29 @@ export default function UpsPage() {
   function closeWarehouseModal() {
     setWarehouseModalOpen(false);
     setWarehouseRows([]);
+    setSelectedInProgressIds(new Set());
+  }
+
+  function updateWarehouseRow(upsInstallationId, field, value) {
+    setWarehouseRows((currentRows) =>
+      currentRows.map((row) =>
+        row.ups_installation_id === upsInstallationId ? { ...row, [field]: value } : row
+      )
+    );
+  }
+
+  function handleToggleVisibleScheduledSelection() {
+    setSelectedInProgressIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+
+      if (allVisibleScheduledSelected) {
+        visibleScheduledInProgressIds.forEach((id) => nextIds.delete(id));
+      } else {
+        visibleScheduledInProgressIds.forEach((id) => nextIds.add(id));
+      }
+
+      return nextIds;
+    });
   }
 
   function openFulfillmentModal(install) {
@@ -451,6 +391,10 @@ export default function UpsPage() {
   function closeFulfillmentModal() {
     setFulfillmentInstall(null);
     setFulfillmentForm(emptyFulfillmentForm);
+  }
+
+  function closeCompletedSummaryModal() {
+    setCompletedSummaryInstall(null);
   }
 
   function updateFulfillmentForm(field, value) {
@@ -505,13 +449,32 @@ export default function UpsPage() {
 
   async function handleCopyWarehouseTable() {
     try {
-      await copyHtmlToClipboard(
-        buildWarehouseHtmlTable(warehouseRows),
-        buildWarehouseTextTable(warehouseRows)
+      const normalizedRows = warehouseRows.map((row) => ({
+        ...row,
+        ups_po: warehouseValue(row.ups_po),
+        bp_po: warehouseValue(row.bp_po)
+      }));
+
+      await Promise.all(
+        normalizedRows.map((row) =>
+          apiRequest(`/ups-installations/${row.ups_installation_id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              ups_po: row.ups_po,
+              bp_po: row.bp_po,
+              status: 'servicing'
+            })
+          })
+        )
       );
-      setMessage({ type: 'success', text: 'Warehouse table copied to clipboard.' });
+      await copyHtmlToClipboard(
+        buildWarehouseHtmlTable(normalizedRows),
+        buildWarehouseTextTable(normalizedRows)
+      );
+      setMessage({ type: 'success', text: 'Warehouse table copied and selected UPS records marked Servicing.' });
       setSelectedInProgressIds(new Set());
       closeWarehouseModal();
+      loadUpsInstallations();
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy warehouse table.' });
     }
@@ -521,9 +484,12 @@ export default function UpsPage() {
     const warnings = [];
     if (!row.install_date) warnings.push('Missing install date');
     if (!row.idf) warnings.push('Missing IDF');
-    if (!row.ups_po) warnings.push('Missing UPS PO');
-    if (row.equipment.includes('BP') && !row.bp_po) warnings.push('Missing BP PO');
     return warnings;
+  }
+
+  function warehouseValue(value) {
+    const normalized = String(value || '').trim();
+    return normalized || 'N/A';
   }
 
   function buildWarehouseHtmlTable(rows) {
@@ -547,7 +513,7 @@ export default function UpsPage() {
           <tr>${headers.map((header) => `<th>${escapeTableValue(header)}</th>`).join('')}</tr>
         </thead>
         <tbody>
-          ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeTableValue(cell)}</td>`).join('')}</tr>`).join('')}
+          ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeTableValue(warehouseValue(cell))}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
     `;
@@ -568,7 +534,7 @@ export default function UpsPage() {
       row.bp_po
     ]);
 
-    return [headers, ...bodyRows].map((row) => row.map((cell) => cell || '').join('\t')).join('\n');
+    return [headers, ...bodyRows].map((row) => row.map((cell) => warehouseValue(cell)).join('\t')).join('\n');
   }
 
   function escapeTableValue(value) {
@@ -586,13 +552,19 @@ export default function UpsPage() {
         eyebrow="Networking"
         title="UPS"
         description="Track UPS installs from intake through scheduling, warehouse coordination, fulfillment, and completion."
-        actions={<button type="button" onClick={loadUpsInstallations}>Refresh</button>}
+        actions={
+          <>
+            <button type="button" onClick={() => onNavigate('operations')}>Dashboard</button>
+            <button type="button" onClick={loadUpsInstallations}>Refresh</button>
+          </>
+        }
       />
 
-      <div className={styles.toolbar}>
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search UPS installations..." />
-        {message && <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>}
-      </div>
+      {message && (
+        <div className={styles.toolbar}>
+          <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>
+        </div>
+      )}
 
       <div className={styles.summaryGrid}>
         <SectionCard title="Pending">
@@ -643,11 +615,18 @@ export default function UpsPage() {
           actions={
             <div className={styles.sectionActions}>
               <SelectionHint count={selectedInProgressIds.size} label="in progress selected" />
+              {visibleScheduledInProgressIds.length > 0 && (
+                <button type="button" onClick={handleToggleVisibleScheduledSelection}>
+                  {allVisibleScheduledSelected ? 'Clear Scheduled' : 'Select Scheduled'}
+                </button>
+              )}
+              {selectedScheduledInProgressCount > 0 && (
+                <button type="button" className="primaryButton" onClick={openWarehouseModal}>
+                  Copy Warehouse Table
+                </button>
+              )}
               {selectedInProgressIds.size > 0 && (
                 <>
-                  <button type="button" className="primaryButton" onClick={openWarehouseModal}>
-                    Copy Warehouse Table
-                  </button>
                   <button type="button" onClick={handleMoveToCompleted}>
                     Move to Completed
                   </button>
@@ -659,7 +638,13 @@ export default function UpsPage() {
           {loading ? (
             <p className="mutedText">Loading in-progress UPS installs...</p>
           ) : visibleInProgressInstalls.length > 0 ? (
-            <DataTable columns={inProgressColumns} rows={visibleInProgressInstalls} getRowKey={(install) => install.ups_installation_id} />
+            <DataTable
+              columns={inProgressColumns}
+              rows={visibleInProgressInstalls}
+              getRowKey={(install) => install.ups_installation_id}
+              onRowClick={openFulfillmentModal}
+              canClickRow={(install) => install.status === 'servicing'}
+            />
           ) : (
             <EmptyState title="No in-progress UPS installs" description="Scheduled UPS records will appear here." />
           )}
@@ -668,81 +653,29 @@ export default function UpsPage() {
         <SectionCard
           title="Completed"
           description="Fulfilled UPS records stay here for quick reference."
+          actions={
+            <input
+              className={styles.completedSearch}
+              value={completedSearch}
+              onChange={(event) => setCompletedSearch(event.target.value)}
+              placeholder="Search completed UPS..."
+            />
+          }
         >
           {loading ? (
             <p className="mutedText">Loading completed UPS installs...</p>
           ) : visibleCompletedInstalls.length > 0 ? (
-            <DataTable columns={completedColumns} rows={visibleCompletedInstalls} getRowKey={(install) => install.ups_installation_id} />
+            <DataTable
+              columns={completedColumns}
+              rows={visibleCompletedInstalls}
+              getRowKey={(install) => install.ups_installation_id}
+              onRowClick={setCompletedSummaryInstall}
+            />
           ) : (
             <EmptyState title="No completed UPS installs" description="Move fulfilled UPS records from In Progress when the install is complete." />
           )}
         </SectionCard>
       </div>
-
-      {editingInstall && (
-        <Modal title="UPS Service Info" onClose={closeServiceModal}>
-          <div className={styles.intakeGrid}>
-            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(editingInstall)} />
-            <ReadOnlyField label="School" value={editingInstall.school_name} />
-            <ReadOnlyField label="TEA Code" value={editingInstall.tea_code} />
-            <ReadOnlyField label="MDF/IDF" value={editingInstall.idf || '-'} />
-            <ReadOnlyField
-              label="Status"
-              value={upsStatusLabelMap[editingInstall.status] || editingInstall.status}
-            />
-          </div>
-
-          <form className={styles.serviceForm} onSubmit={handleSaveServiceInfo}>
-            <div className={styles.serviceGrid}>
-              <label>
-                Model
-                <input value={serviceForm.model} onChange={(event) => updateServiceForm('model', event.target.value)} maxLength={100} />
-              </label>
-              <label>
-                Defective UPS Serial
-                <input value={serviceForm.serial_number} onChange={(event) => updateServiceForm('serial_number', event.target.value)} maxLength={100} />
-              </label>
-              <label>
-                SNMP IP
-                <input value={serviceForm.snmp_ip} onChange={(event) => updateServiceForm('snmp_ip', event.target.value)} maxLength={100} />
-              </label>
-              <label>
-                Hostname
-                <input value={serviceForm.hostname} onChange={(event) => updateServiceForm('hostname', event.target.value)} maxLength={100} />
-              </label>
-              <label>
-                Asset Tag
-                <input value={serviceForm.asset_tag} onChange={(event) => updateServiceForm('asset_tag', event.target.value)} maxLength={100} />
-              </label>
-              <label>
-                MAC
-                <input value={serviceForm.mac_address} onChange={(event) => updateServiceForm('mac_address', event.target.value)} maxLength={32} />
-              </label>
-              <label>
-                Room
-                <input value={serviceForm.room_number} onChange={(event) => updateServiceForm('room_number', event.target.value)} maxLength={50} />
-              </label>
-              <label>
-                MDF/IDF
-                <input value={serviceForm.idf} onChange={(event) => updateServiceForm('idf', event.target.value)} maxLength={100} />
-              </label>
-              <label>
-                Defective BP Serial
-                <input value={serviceForm.defective_battery_pack_serial} onChange={(event) => updateServiceForm('defective_battery_pack_serial', event.target.value)} maxLength={100} />
-              </label>
-              <label>
-                BP Asset Tag
-                <input value={serviceForm.battery_pack_1_asset_tag} onChange={(event) => updateServiceForm('battery_pack_1_asset_tag', event.target.value)} maxLength={100} />
-              </label>
-            </div>
-            <div className={styles.actions}>
-              <button type="submit" className="primaryButton">Save Service Info</button>
-              <button type="button" onClick={handleCopyServiceEmail}>Copy Email</button>
-              <button type="button" onClick={closeServiceModal}>Cancel</button>
-            </div>
-          </form>
-        </Modal>
-      )}
 
       {scheduleModalOpen && (
         <Modal title="NOC Schedule" onClose={closeScheduleModal}>
@@ -807,15 +740,27 @@ export default function UpsPage() {
                 {warehouseRows.map((row) => (
                   <tr key={row.ups_installation_id}>
                     <td>{row.ticket_number}</td>
-                    <td>{row.idf || '-'}</td>
+                    <td>{warehouseValue(row.idf)}</td>
                     <td>{row.school_name}</td>
-                    <td>{row.install_date || '-'}</td>
+                    <td>{warehouseValue(row.install_date)}</td>
                     <td>{row.type}</td>
                     <td>{row.equipment}</td>
-                    <td>{row.ups_serial}</td>
-                    <td>{row.ups_po || '-'}</td>
-                    <td>{row.bp_serials}</td>
-                    <td>{row.bp_po || '-'}</td>
+                    <td>{warehouseValue(row.ups_serial)}</td>
+                    <td>
+                      <input
+                        value={row.ups_po}
+                        onChange={(event) => updateWarehouseRow(row.ups_installation_id, 'ups_po', event.target.value)}
+                        maxLength={100}
+                      />
+                    </td>
+                    <td>{warehouseValue(row.bp_serials)}</td>
+                    <td>
+                      <input
+                        value={row.bp_po}
+                        onChange={(event) => updateWarehouseRow(row.ups_installation_id, 'bp_po', event.target.value)}
+                        maxLength={100}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -826,23 +771,6 @@ export default function UpsPage() {
               Copy Warehouse Table
             </button>
             <button type="button" onClick={closeWarehouseModal}>Cancel</button>
-          </div>
-        </Modal>
-      )}
-
-      {summaryInstall && (
-        <Modal title="UPS Summary" onClose={() => setSummaryInstall(null)}>
-          <div className={styles.summaryDetails}>
-            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(summaryInstall)} />
-            <ReadOnlyField label="School" value={summaryInstall.school_name} />
-            <ReadOnlyField label="IDF" value={summaryInstall.idf || '-'} />
-            <ReadOnlyField label="Install Date" value={summaryInstall.proposed_install_date || '-'} />
-            <ReadOnlyField label="Equipment" value={deriveUpsEquipment(summaryInstall)} />
-            <ReadOnlyField label="UPS PO" value={summaryInstall.ups_po || '-'} />
-            <ReadOnlyField label="BP PO" value={summaryInstall.bp_po || '-'} />
-          </div>
-          <div className={styles.actions}>
-            <button type="button" onClick={() => setSummaryInstall(null)}>Close</button>
           </div>
         </Modal>
       )}
@@ -891,8 +819,40 @@ export default function UpsPage() {
           </form>
         </Modal>
       )}
+
+      {completedSummaryInstall && (
+        <Modal title="UPS Details" onClose={closeCompletedSummaryModal}>
+          <div className={styles.summaryDetails}>
+            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
+            <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
+            <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code || '-'} />
+            <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf || '-'} />
+            <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date || '-'} />
+            <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
+            <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number || '-'} />
+            <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial || '-'} />
+            <ReadOnlyField label="Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
+            <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number || '-'} />
+            <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial || '-'} />
+            <ReadOnlyField label="MAC" value={completedSummaryInstall.mac_address || '-'} />
+            <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip || '-'} />
+            <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial || '-'} />
+            <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag || '-'} />
+            <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po || '-'} />
+            <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po || '-'} />
+            <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
+          </div>
+          <div className={styles.actions}>
+            <button type="button" onClick={closeCompletedSummaryModal}>Close</button>
+          </div>
+        </Modal>
+      )}
     </>
   );
+}
+
+function DateBadge({ value }) {
+  return <span className={styles.dateBadge}>{value || '-'}</span>;
 }
 
 function SelectionHint({ count, label }) {

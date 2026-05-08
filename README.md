@@ -117,7 +117,7 @@ The Next.js app currently includes:
 - Persistent app shell
 - Left sidebar with `Dashboard`, `Networking`, `Inventory`, `Reports`, and `Settings`
 - Networking workspace top tabs with `Operations`, `Tickets`, and `UPS`
-- Functional Operations landing page with mock control-center data
+- Functional Operations landing page backed by existing ticket and UPS APIs
 - Functional Tickets tab
 - UPS foundation view with Pending and In Progress tables
 
@@ -150,33 +150,48 @@ The Tickets tab currently supports:
 - RMA email generation with fixed `HISD` customer, ticket campus, defective model/SN, Dynamics Case #, and Issue
 - UPS-specific ticket response flow with editable response note, one default UPS row, optional added UPS rows, and optional battery packs
 - Copy UPS Response closes the ticket and seeds the existing UPS pending install record with the first UPS and battery pack details
+- UPS response fields intentionally start blank so device details are entered from the technician response
 
 The standalone RMA frontend tab has been retired. RMA email handoff now lives inside the Temporary + RMA ticket response flow.
 
 The UPS tab currently supports:
 
 - Pending installs table from `/api/ups-installations/?status=intake`
-- In Progress table from `/api/ups-installations/?status=scheduled`
-- Search
+- In Progress table from `/api/ups-installations/?status=scheduled` and `/api/ups-installations/?status=servicing`
 - Row selection state
 - Derived equipment display
 - Status labels
-- Pending row service-info modal
-- Phase 2 service-info save through `/api/ups-installations/{id}/phase2`
-- Service response email copy from the service-info modal
 - NOC schedule generation from selected pending rows
-- Per-row proposed install date editing before moving records to In Progress
+- Per-row proposed install date editing before moving records to In Progress, defaulting to Monday of the next calendar week
 - Outlook-friendly schedule table copied to clipboard
+- Highlighted install date badges in the In Progress table
 - Warehouse email preview from selected In Progress rows
-- Warehouse missing-field warnings
+- `Select Scheduled` batch selection for visible scheduled UPS records before warehouse generation
+- Editable UPS PO and BP PO fields in the warehouse preview
+- Blank warehouse email fields normalized to `N/A`
 - Outlook-friendly warehouse table copied to clipboard
-- Read-only In Progress row summary modal
-- Phase 3 fulfillment modal for In Progress rows
+- Warehouse copy marks selected records as `Servicing`
+- Servicing In Progress rows open the Phase 3 fulfillment modal
+- Scheduled In Progress rows remain non-clickable until the warehouse table has been copied
+- Row-level `Remove` action sends an In Progress record back to Pending
 - Phase 3 device save through `/api/ups-installations/{id}/phase3-devices`
 - Explicit Move to Completed action for selected In Progress rows
 - Completed UPS table from `/api/ups-installations/?status=fulfilled`
+- Completed UPS search scoped to the Completed table
+- Completed UPS asset-reference columns for asset tag, UPS SN, MAC, SNMP IP, and status
+- Completed UPS row-click summary modal for full install details
 
 UPS records now stay in In Progress while fulfillment details are saved, then move to Completed only when selected and explicitly closed out.
+
+The Operations dashboard currently supports:
+
+- Open Tickets section with an open count, on-hold detail, create-ticket action, and open/on-hold preview table
+- UPS This Week section with pending count, current-week install count, and a Monday-Friday install table
+- Current-day UPS install dates highlighted in the weekly table
+- Recent Closed Work table from closed tickets and fulfilled UPS installs
+- Quick Actions for ticket creation and UPS workflow navigation inside their related sections
+- Dashboard buttons on Tickets and UPS workflow pages
+- Dashboard refresh without changing backend routes
 
 ## Backend Notes
 

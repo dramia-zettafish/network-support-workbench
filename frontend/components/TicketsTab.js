@@ -99,12 +99,10 @@ const emptyRmaEmail = {
   issue: ''
 };
 
-const defaultUpsResponseNote = "Confirmed UPS errors. They're old models that are out of warranty and would need to be replaced. Could you update the ticket please. Thank You!";
-
 const emptyUpsDevice = {
   model: '',
   sn: '',
-  snmp_ip: 'N/A',
+  snmp_ip: '',
   hostname: '',
   asset_tag: '',
   mac_address: '',
@@ -300,7 +298,7 @@ export default function TicketsTab() {
       }
     } catch (error) {
       setResponseRecord(null);
-      setResponseForm(ticket.device_type === 'ups' ? { ...emptyResponse, response_note: defaultUpsResponseNote } : emptyResponse);
+      setResponseForm(emptyResponse);
     } finally {
       setResponseLoading(false);
     }
@@ -327,7 +325,7 @@ export default function TicketsTab() {
     return {
       model: response.replacement_model || '',
       sn: response.replacement_sn || '',
-      snmp_ip: response.replacement_ip || 'N/A',
+      snmp_ip: response.replacement_ip || '',
       hostname: response.replacement_hostname || '',
       asset_tag: response.replacement_asset_tag || '',
       mac_address: response.replacement_mac || '',
@@ -477,7 +475,7 @@ export default function TicketsTab() {
       const upsResponseForm = {
         ...responseForm,
         resolution_type: 'permanent',
-        response_note: responseForm.response_note || defaultUpsResponseNote,
+        response_note: responseForm.response_note,
         replacement_model: firstUps.model,
         replacement_sn: firstUps.sn,
         replacement_mac: firstUps.mac_address,
@@ -639,7 +637,7 @@ export default function TicketsTab() {
     const lines = [
       getGreeting(),
       '',
-      note || defaultUpsResponseNote
+      note || ''
     ];
 
     devices.forEach((device, index) => {
@@ -718,7 +716,6 @@ export default function TicketsTab() {
             <strong>UPS Replacement Response</strong>
           </div>
         </div>
-        {renderResponseNote('Response Note', 'response_note', 4)}
         <section className={styles.responsePhase}>
           <div className={styles.phaseHeader}>
             <h3>UPS Information</h3>
@@ -788,6 +785,7 @@ export default function TicketsTab() {
             <p className="mutedText">Add a battery pack only when one needs to be included in the response.</p>
           )}
         </section>
+        {renderResponseNote('Response Note', 'response_note', 4)}
         <div className={styles.actions}>
           <button type="button" className="primaryButton" onClick={handleCopyUpsResponse} disabled={responseClosed}>
             Copy UPS Response
@@ -852,9 +850,8 @@ export default function TicketsTab() {
                 <input
                   type="text"
                   value={ticketForm.mdf_idf}
-                  onChange={(event) => updateTicketForm('mdf_idf', event.target.value)}
+                  onChange={(event) => updateTicketForm('mdf_idf', event.target.value.toUpperCase())}
                   maxLength={100}
-                  placeholder="MDF or IDF A"
                 />
               </label>
               <label>
