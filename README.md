@@ -1,43 +1,31 @@
 # Network Vcode - Networking Workspace
 
-This branch is the active workspace for the standalone Next.js runtime. The app now runs as Next.js pages plus Next.js API routes backed by PostgreSQL.
+A Next.js + PostgreSQL ticket and UPS installation tracking application for network infrastructure management. This is the active production runtime.
 
-## Branch Purpose
+## Stack
 
-`next-api-backend-foundation` starts from the polished Networking workspace UI and is the active branch for the local Next.js/PostgreSQL runtime:
+- **Frontend:** Next.js 16+ with App Router, React 19, plain CSS modules
+- **Backend:** Next.js API routes using Node.js `pg` for PostgreSQL access
+- **Database:** PostgreSQL 16 with schema initialization from SQL
+- **Proxy:** Caddy reverse proxy for routing and local HTTPS (dev)
+- **Container:** Docker Compose for local development
 
-- Node/Postgres database access with `pg`
-- Next.js API routes for current ticket and UPS behavior
-- PostgreSQL schema initialization from SQL
-- Archived Python backend for temporary reference
-- No auth, production routing, TLS, or deployment hardening in this phase
+**For detailed workflow documentation, see [WORKFLOW.md](WORKFLOW.md).**
 
-Major workflow rewrites should wait until the standalone runtime has settled.
-
-## Branch Map
-
-- `v3`: legacy stable FastAPI plus vanilla HTML/CSS/JS app with the full Tickets/RMA/UPS workflow.
-- `nextjs-baseline`: completed Next.js migration checkpoint.
-- `nextjs-migration-complete`: tag marking the exact migration baseline commit.
-- `networking-workspace`: active redesign branch built from the Next.js baseline.
-- `ups-workflow-polish`: stable polished UI/UX checkpoint before Next API migration.
-- `next-api-backend-foundation`: active local backend migration branch.
-
-## Current Architecture
+## Project Structure
 
 ```text
 repo/
-  archive/python-backend/
-                       Archived FastAPI backend, models, schemas, and Alembic migrations
-  db/network_vcode_schema.sql
-                       PostgreSQL schema source for local development
-  frontend/            Next.js frontend using the App Router
-  frontend/app/api     Next.js API routes
-  caddy/Caddyfile      Single browser entrypoint and API proxy
-  docker-compose.yml   Local development stack
+  db/network_vcode_schema.sql     PostgreSQL schema source
+  frontend/                       Next.js frontend (App Router + API routes)
+  frontend/app/                   Next.js pages
+  frontend/app/api/               Next.js API routes
+  caddy/Caddyfile                 Reverse proxy configuration
+  docker-compose.yml              Local development stack
+  WORKFLOW.md                     Business logic and state machines
 ```
 
-PostgreSQL initializes from `db/network_vcode_schema.sql` on a fresh Docker volume. FastAPI and Alembic are archived and are not part of the normal runtime.
+PostgreSQL initializes from `db/network_vcode_schema.sql` on a fresh Docker volume.
 
 ## Local Services
 
@@ -201,7 +189,7 @@ The Operations dashboard currently supports:
 
 ## Backend Notes
 
-The active backend is implemented with Next.js API routes and Node.js `pg`. The old FastAPI/Alembic backend has been moved to `archive/python-backend/` for temporary reference only.
+The backend is implemented with Next.js API routes and Node.js `pg` client for database access.
 
 Important existing backend behavior:
 
@@ -236,7 +224,7 @@ Migrated Next.js API routes currently include:
 
 Manual parity verification was completed locally through `http://localhost:8080` after the Next.js API migration foundation was added. Verified workflows include ticket create/edit/delete, device response create/update, UPS ticket to pending, scheduling, rollback, warehouse PO/status update, fulfillment save, completed summary, and Operations dashboard refresh.
 
-Fresh runtime verification was also completed after removing the FastAPI service from Docker Compose. Verified `docker compose up --build` with a fresh PostgreSQL volume, schema initialization from SQL, frontend load, ticket API list/create/edit, UPS auto-create, scheduling, warehouse update, fulfillment save, and rollback.
+The current runtime has been verified with a fresh PostgreSQL volume, schema initialization from SQL, frontend load, ticket API operations (list/create/edit), UPS auto-create and full workflow (scheduling, warehouse update, fulfillment save).
 
 ## Dependency Notes
 
@@ -262,4 +250,5 @@ For the next phase, keep the standalone runtime behavior intact:
 - Keep API calls behind `/api/*`.
 - Keep colors in CSS variables.
 - Prefer small route-compatible changes over broad rewrites.
-- Keep the archived Python backend untouched unless a future cleanup task explicitly removes it.
+- Maintain the current Next.js/PostgreSQL architecture as the stable runtime.
+- Archive older implementations only after confirming all workflows and business logic are migrated.
