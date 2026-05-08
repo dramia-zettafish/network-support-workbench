@@ -1,7 +1,7 @@
 export const API_BASE = '/api';
 
 export async function apiRequest(endpoint, options = {}) {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${API_BASE}${normalizeEndpoint(endpoint)}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {})
@@ -18,4 +18,10 @@ export async function apiRequest(endpoint, options = {}) {
   }
 
   return response.json();
+}
+
+function normalizeEndpoint(endpoint) {
+  const [path, query = ''] = endpoint.split('?');
+  const normalizedPath = path.length > 1 ? path.replace(/\/+$/, '') : path;
+  return query ? `${normalizedPath}?${query}` : normalizedPath;
 }

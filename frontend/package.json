@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "next": "^16.2.5",
+    "pg": "^8.20.0",
     "postcss": "8.5.10",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

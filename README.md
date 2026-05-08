@@ -1,19 +1,17 @@
 # Network Vcode - Networking Workspace
 
-This branch is the active workspace for the post-migration UI redesign. The FastAPI backend remains in `app/`, and the frontend now runs as a separate Next.js app in `frontend/`.
+This branch is the active workspace for the post-migration UI redesign and local Next.js API migration. The FastAPI backend remains in `app/` as a side-by-side fallback while matching API routes are added under `frontend/app/api`.
 
 ## Branch Purpose
 
-`networking-workspace` starts from the completed Next.js migration baseline and is the active branch for the structural UI pass:
+`next-api-backend-foundation` starts from the polished Networking workspace UI and is the active branch for the local Next.js API migration:
 
-- Shared app shell
-- Sidebar layout
-- Networking workspace
-- Top tab navigation
-- Operations landing page
-- Shared card and table UI system
+- Node/Postgres database access with `pg`
+- Next.js API route parity for current ticket and UPS behavior
+- Side-by-side FastAPI fallback during migration
+- No auth, production routing, TLS, or deployment hardening in this phase
 
-Major workflow rewrites should wait until the shell and navigation structure are stable.
+Major workflow rewrites should wait until API parity is confirmed.
 
 ## Branch Map
 
@@ -21,6 +19,8 @@ Major workflow rewrites should wait until the shell and navigation structure are
 - `nextjs-baseline`: completed Next.js migration checkpoint.
 - `nextjs-migration-complete`: tag marking the exact migration baseline commit.
 - `networking-workspace`: active redesign branch built from the Next.js baseline.
+- `ups-workflow-polish`: stable polished UI/UX checkpoint before Next API migration.
+- `next-api-backend-foundation`: active local backend migration branch.
 
 ## Current Architecture
 
@@ -28,11 +28,12 @@ Major workflow rewrites should wait until the shell and navigation structure are
 repo/
   app/                 FastAPI backend, database models, schemas, Alembic migrations
   frontend/            Next.js frontend using the App Router
+  frontend/app/api     Next.js API route migration in progress
   caddy/Caddyfile      Single browser entrypoint and API proxy
   docker-compose.yml   Local development stack
 ```
 
-The backend routes, models, schemas, and database logic are unchanged from the migration baseline.
+FastAPI remains available in Docker, and Alembic still owns schema migrations. The local browser/API entrypoint now exercises the Next.js API route foundation for migrated routes.
 
 ## Local Services
 
@@ -46,7 +47,7 @@ Docker Compose starts four services:
 Caddy routes requests as follows:
 
 ```text
-/api/*     -> FastAPI app:8000, with /api stripped
+/api/*     -> Next.js frontend:3000 API routes
 /*         -> Next.js frontend:3000
 ```
 
@@ -56,11 +57,7 @@ The Next.js frontend should call backend endpoints through `/api`, for example:
 /api/tickets/
 ```
 
-FastAPI still receives the original route:
-
-```text
-/tickets/
-```
+FastAPI still runs side by side on the Docker network for fallback/parity checks, but Caddy no longer strips `/api` for migrated local requests.
 
 ## Run Locally
 
@@ -195,7 +192,7 @@ The Operations dashboard currently supports:
 
 ## Backend Notes
 
-The backend remains FastAPI and PostgreSQL. Alembic runs automatically when the `app` service starts.
+The backend migration is in progress. FastAPI and PostgreSQL remain in place, and Alembic runs automatically when the `app` service starts. The Next.js API route foundation uses Node.js plus `pg` against the same PostgreSQL database.
 
 Current migration head:
 
@@ -210,9 +207,29 @@ Important existing backend behavior:
 - TEA code is limited to 3 digits.
 - Ticket edits are limited to `note` and `status`.
 - Device responses are stored one per ticket in `device_responses`.
-- Device response routes live under `/tickets/{ticket_number}/response`.
+- Device response routes live under `/api/tickets/{ticket_number}/response` in the Next.js API layer.
 - Legacy RMA backend routes remain available but are no longer exposed in the Next.js workspace.
-- UPS backend routes are available through the Next.js workspace.
+- Tickets and UPS routes are available through the Next.js API layer under `/api/*`.
+- FastAPI routes are not deleted yet and remain available for side-by-side migration checks.
+
+Migrated Next.js API routes currently include:
+
+- `GET /api/tickets`
+- `POST /api/tickets`
+- `PUT /api/tickets/{ticket_number}`
+- `DELETE /api/tickets/{ticket_number}`
+- `GET /api/tickets/{ticket_number}/response`
+- `POST /api/tickets/{ticket_number}/response`
+- `PATCH /api/tickets/{ticket_number}/response`
+- `GET /api/ups-installations`
+- `PUT /api/ups-installations/{ups_installation_id}`
+- `PATCH /api/ups-installations/{ups_installation_id}/phase2`
+- `PATCH /api/ups-installations/{ups_installation_id}/phase3-schedule`
+- `PATCH /api/ups-installations/{ups_installation_id}/phase3-warehouse`
+- `PATCH /api/ups-installations/{ups_installation_id}/phase3-devices`
+- `POST /api/ups/schedule`
+- `POST /api/ups/schedule/custom`
+- `PATCH /api/ups/{ups_installation_id}/rollback`
 
 ## Dependency Notes
 

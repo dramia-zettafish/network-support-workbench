@@ -32,9 +32,14 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/tickets
     ports:
       - "3000:3000"
     command: npm run dev
+    depends_on:
+      db:
+        condition: service_healthy
 
   caddy:
     image: caddy:2-alpine
