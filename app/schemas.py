@@ -22,6 +22,7 @@ class UpsInstallStatus(str, Enum):
 class DeviceResponseResolutionType(str, Enum):
     permanent = "permanent"
     temp_rma = "temp_rma"
+    no_replacement = "no_replacement"
 
 class DeviceResponseStatus(str, Enum):
     open = "open"

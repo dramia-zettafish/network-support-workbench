@@ -328,9 +328,21 @@ export default function TicketsTab() {
     try {
       await saveResponse('closed');
       await copyTextToClipboard(buildPermanentResponseText(responseForm));
+      closeResponseModal();
       setMessage({ type: 'success', text: 'Permanent replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy permanent replacement response.' });
+    }
+  }
+
+  async function handleCopyNoReplacementResponse() {
+    try {
+      await saveResponse('closed');
+      await copyTextToClipboard(buildNoReplacementResponseText(responseForm));
+      closeResponseModal();
+      setMessage({ type: 'success', text: 'No replacement response copied.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy no replacement response.' });
     }
   }
 
@@ -349,6 +361,7 @@ export default function TicketsTab() {
     try {
       await saveResponse('closed');
       await copyTextToClipboard(buildRmaResponseText(responseForm));
+      closeResponseModal();
       setMessage({ type: 'success', text: 'RMA replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy RMA replacement response.' });
@@ -425,6 +438,16 @@ export default function TicketsTab() {
       fieldLine('IP', form.replacement_ip),
       fieldLine('Asset Tag', form.replacement_asset_tag),
       fieldLine('Room', form.replacement_room)
+    ].join('\n');
+  }
+
+  function buildNoReplacementResponseText(form) {
+    return [
+      getGreeting(),
+      '',
+      form.response_note || '',
+      '',
+      'Could you please update the ticket. Thank You!'
     ].join('\n');
   }
 
@@ -612,6 +635,7 @@ export default function TicketsTab() {
                     >
                       <option value="permanent">Permanent Replacement</option>
                       <option value="temp_rma">Temporary + RMA</option>
+                      <option value="no_replacement">No Replacement</option>
                     </select>
                   </label>
                 )}
@@ -631,7 +655,25 @@ export default function TicketsTab() {
                 <p className="mutedText">Resolution type is locked because a response has already been copied.</p>
               )}
 
-              {responseForm.resolution_type === 'permanent' ? (
+              {responseForm.resolution_type === 'no_replacement' ? (
+                <>
+                  <label className={styles.fullWidthLabel}>
+                    Response Note
+                    <textarea
+                      value={responseForm.response_note}
+                      onChange={(event) => updateResponseForm('response_note', event.target.value)}
+                      maxLength={2000}
+                      rows={6}
+                    />
+                  </label>
+                  <div className={styles.actions}>
+                    <button type="button" className="primaryButton" onClick={handleCopyNoReplacementResponse}>
+                      Copy Response
+                    </button>
+                    <button type="button" onClick={closeResponseModal}>Close</button>
+                  </div>
+                </>
+              ) : responseForm.resolution_type === 'permanent' ? (
                 <>
                   <label className={styles.fullWidthLabel}>
                     Response Note

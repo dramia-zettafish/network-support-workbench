@@ -27,6 +27,7 @@ class UpsInstallStatus(PyEnum):
 class DeviceResponseResolutionType(PyEnum):
     permanent = "permanent"
     temp_rma = "temp_rma"
+    no_replacement = "no_replacement"
 
 class DeviceResponseStatus(PyEnum):
     open = "open"
