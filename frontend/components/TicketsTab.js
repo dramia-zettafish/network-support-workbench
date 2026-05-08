@@ -99,6 +99,23 @@ const emptyRmaEmail = {
   issue: ''
 };
 
+const defaultUpsResponseNote = "Confirmed UPS errors. They're old models that are out of warranty and would need to be replaced. Could you update the ticket please. Thank You!";
+
+const emptyUpsDevice = {
+  model: '',
+  sn: '',
+  snmp_ip: 'N/A',
+  hostname: '',
+  asset_tag: '',
+  mac_address: '',
+  room: ''
+};
+
+const emptyBatteryPack = {
+  sn: '',
+  asset_tag: ''
+};
+
 export default function TicketsTab() {
   const [ticketForm, setTicketForm] = useState(emptyTicket);
   const [tickets, setTickets] = useState([]);
@@ -115,6 +132,8 @@ export default function TicketsTab() {
   const [responseLoading, setResponseLoading] = useState(false);
   const [rmaEmailStep, setRmaEmailStep] = useState(false);
   const [rmaEmailForm, setRmaEmailForm] = useState(emptyRmaEmail);
+  const [upsDevices, setUpsDevices] = useState([{ ...emptyUpsDevice }]);
+  const [batteryPacks, setBatteryPacks] = useState([]);
 
   useEffect(() => {
     loadTickets();
@@ -268,15 +287,20 @@ export default function TicketsTab() {
     setResponseForm(emptyResponse);
     setRmaEmailStep(false);
     setRmaEmailForm(emptyRmaEmail);
+    setUpsDevices([{ ...emptyUpsDevice }]);
+    setBatteryPacks([]);
     setResponseLoading(true);
 
     try {
       const response = await apiRequest(`/tickets/${ticket.ticket_number}/response`);
       setResponseRecord(response);
       setResponseForm(responseToForm(response));
+      if (ticket.device_type === 'ups') {
+        setUpsDevices([responseToUpsDevice(response)]);
+      }
     } catch (error) {
       setResponseRecord(null);
-      setResponseForm(emptyResponse);
+      setResponseForm(ticket.device_type === 'ups' ? { ...emptyResponse, response_note: defaultUpsResponseNote } : emptyResponse);
     } finally {
       setResponseLoading(false);
     }
@@ -288,6 +312,8 @@ export default function TicketsTab() {
     setResponseForm(emptyResponse);
     setRmaEmailStep(false);
     setRmaEmailForm(emptyRmaEmail);
+    setUpsDevices([{ ...emptyUpsDevice }]);
+    setBatteryPacks([]);
     setResponseLoading(false);
   }
 
@@ -295,6 +321,18 @@ export default function TicketsTab() {
     return Object.fromEntries(
       Object.keys(emptyResponse).map((key) => [key, response[key] || emptyResponse[key]])
     );
+  }
+
+  function responseToUpsDevice(response) {
+    return {
+      model: response.replacement_model || '',
+      sn: response.replacement_sn || '',
+      snmp_ip: response.replacement_ip || 'N/A',
+      hostname: response.replacement_hostname || '',
+      asset_tag: response.replacement_asset_tag || '',
+      mac_address: response.replacement_mac || '',
+      room: response.replacement_room || ''
+    };
   }
 
   function updateResponseForm(field, value) {
@@ -305,18 +343,18 @@ export default function TicketsTab() {
     setRmaEmailForm((current) => ({ ...current, [field]: value }));
   }
 
-  function normalizeResponsePayload(statusOverride) {
+  function normalizeResponsePayload(statusOverride, form = responseForm) {
     const payload = Object.fromEntries(
-      Object.entries(responseForm).map(([key, value]) => [key, typeof value === 'string' ? value.trim() || null : value])
+      Object.entries(form).map(([key, value]) => [key, typeof value === 'string' ? value.trim() || null : value])
     );
-    payload.resolution_type = responseForm.resolution_type;
-    payload.status = statusOverride || responseForm.status || 'open';
+    payload.resolution_type = form.resolution_type;
+    payload.status = statusOverride || form.status || 'open';
     return payload;
   }
 
-  async function saveResponse(statusOverride) {
+  async function saveResponse(statusOverride, formOverride) {
     if (!responseTicket) return null;
-    const payload = normalizeResponsePayload(statusOverride);
+    const payload = normalizeResponsePayload(statusOverride, formOverride);
     const endpoint = `/tickets/${responseTicket.ticket_number}/response`;
     const savedResponse = responseRecord
       ? await apiRequest(endpoint, { method: 'PATCH', body: JSON.stringify(payload) })
@@ -325,6 +363,34 @@ export default function TicketsTab() {
     setResponseRecord(savedResponse);
     setResponseForm(responseToForm(savedResponse));
     return savedResponse;
+  }
+
+  function updateUpsDevice(index, field, value) {
+    setUpsDevices((current) =>
+      current.map((device, currentIndex) => currentIndex === index ? { ...device, [field]: value } : device)
+    );
+  }
+
+  function addUpsDevice() {
+    setUpsDevices((current) => [...current, { ...emptyUpsDevice }]);
+  }
+
+  function removeUpsDevice(index) {
+    setUpsDevices((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  }
+
+  function updateBatteryPack(index, field, value) {
+    setBatteryPacks((current) =>
+      current.map((pack, currentIndex) => currentIndex === index ? { ...pack, [field]: value } : pack)
+    );
+  }
+
+  function addBatteryPack() {
+    setBatteryPacks((current) => [...current, { ...emptyBatteryPack }]);
+  }
+
+  function removeBatteryPack(index) {
+    setBatteryPacks((current) => current.filter((_, currentIndex) => currentIndex !== index));
   }
 
   async function closeTicketStatus() {
@@ -403,6 +469,55 @@ export default function TicketsTab() {
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy RMA replacement response.' });
     }
+  }
+
+  async function handleCopyUpsResponse() {
+    try {
+      const firstUps = upsDevices[0] || emptyUpsDevice;
+      const upsResponseForm = {
+        ...responseForm,
+        resolution_type: 'permanent',
+        response_note: responseForm.response_note || defaultUpsResponseNote,
+        replacement_model: firstUps.model,
+        replacement_sn: firstUps.sn,
+        replacement_mac: firstUps.mac_address,
+        replacement_hostname: firstUps.hostname,
+        replacement_ip: firstUps.snmp_ip,
+        replacement_asset_tag: firstUps.asset_tag,
+        replacement_room: firstUps.room
+      };
+      await saveResponse('closed', upsResponseForm);
+      await seedUpsPendingInstall(firstUps, batteryPacks[0]);
+      await copyTextToClipboard(buildUpsResponseText(upsResponseForm.response_note, upsDevices, batteryPacks));
+      await closeTicketStatus();
+      closeResponseModal();
+      loadTickets();
+      setMessage({ type: 'success', text: 'UPS response copied and UPS install moved to Pending.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy UPS response.' });
+    }
+  }
+
+  async function seedUpsPendingInstall(firstUps, firstBatteryPack) {
+    const installs = await apiRequest('/ups-installations/?limit=1000&offset=0');
+    const install = (installs || []).find((item) => item.ticket_number === responseTicket.ticket_number);
+    if (!install) return;
+
+    await apiRequest(`/ups-installations/${install.ups_installation_id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        status: 'intake',
+        model: firstUps.model || null,
+        serial_number: firstUps.sn || null,
+        snmp_ip: firstUps.snmp_ip || null,
+        hostname: firstUps.hostname || null,
+        asset_tag: firstUps.asset_tag || null,
+        mac_address: firstUps.mac_address || null,
+        room_number: firstUps.room || null,
+        defective_battery_pack_serial: firstBatteryPack?.sn || null,
+        battery_pack_1_asset_tag: firstBatteryPack?.asset_tag || null
+      })
+    });
   }
 
   function getGreeting() {
@@ -520,6 +635,39 @@ export default function TicketsTab() {
     ].join('\n');
   }
 
+  function buildUpsResponseText(note, devices, packs) {
+    const lines = [
+      getGreeting(),
+      '',
+      note || defaultUpsResponseNote
+    ];
+
+    devices.forEach((device, index) => {
+      lines.push(
+        '',
+        `UPS ${index + 1} Information:`,
+        fieldLine('Model', device.model),
+        fieldLine('SN', device.sn),
+        fieldLine('SNMP IP', device.snmp_ip),
+        fieldLine('Hostname', device.hostname),
+        fieldLine('Asset Tag', device.asset_tag),
+        fieldLine('MAC Address', device.mac_address),
+        fieldLine('Room', device.room)
+      );
+    });
+
+    packs.forEach((pack, index) => {
+      lines.push(
+        '',
+        packs.length === 1 ? 'Battery Pack:' : `Battery Pack ${index + 1}:`,
+        fieldLine('SN', pack.sn),
+        fieldLine('Asset Tag', pack.asset_tag)
+      );
+    });
+
+    return lines.join('\n');
+  }
+
   const responseTypeLocked = Boolean(responseRecord?.resolution_locked_at);
   const responseClosed = responseForm.status === 'closed';
   const rmaPhaseUnlocked = responseForm.status === 'temp_placed' || responseForm.status === 'closed';
@@ -558,6 +706,95 @@ export default function TicketsTab() {
           disabled={responseClosed}
         />
       </label>
+    );
+  }
+
+  function renderUpsResponse() {
+    return (
+      <>
+        <div className={styles.responseHeader}>
+          <div className={styles.responseContext}>
+            <span>{responseTicket.school_name}</span>
+            <strong>UPS Replacement Response</strong>
+          </div>
+        </div>
+        {renderResponseNote('Response Note', 'response_note', 4)}
+        <section className={styles.responsePhase}>
+          <div className={styles.phaseHeader}>
+            <h3>UPS Information</h3>
+            {!responseClosed && <button type="button" onClick={addUpsDevice}>Add UPS</button>}
+          </div>
+          <div className={styles.deviceStack}>
+            {upsDevices.map((device, index) => (
+              <div className={styles.responseFieldset} key={`ups-${index}`}>
+                <div className={styles.phaseHeader}>
+                  <h4>UPS {index + 1}</h4>
+                  {index > 0 && !responseClosed && (
+                    <button type="button" onClick={() => removeUpsDevice(index)}>Remove</button>
+                  )}
+                </div>
+                <div className={styles.responseGrid}>
+                  {[
+                    ['model', 'Model'],
+                    ['sn', 'SN'],
+                    ['snmp_ip', 'SNMP IP'],
+                    ['hostname', 'Hostname'],
+                    ['asset_tag', 'Asset Tag'],
+                    ['mac_address', 'MAC Address'],
+                    ['room', 'Room']
+                  ].map(([field, label]) => (
+                    <label key={field}>
+                      {label}
+                      <input
+                        value={device[field]}
+                        onChange={(event) => updateUpsDevice(index, field, event.target.value)}
+                        maxLength={field === 'mac_address' ? 32 : field === 'room' ? 50 : 100}
+                        disabled={responseClosed}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className={styles.responsePhase}>
+          <div className={styles.phaseHeader}>
+            <h3>Battery Packs</h3>
+            {!responseClosed && <button type="button" onClick={addBatteryPack}>Add Battery Pack</button>}
+          </div>
+          {batteryPacks.length > 0 ? (
+            <div className={styles.deviceStack}>
+              {batteryPacks.map((pack, index) => (
+                <div className={styles.responseFieldset} key={`battery-${index}`}>
+                  <div className={styles.phaseHeader}>
+                    <h4>{batteryPacks.length === 1 ? 'Battery Pack' : `Battery Pack ${index + 1}`}</h4>
+                    {!responseClosed && <button type="button" onClick={() => removeBatteryPack(index)}>Remove</button>}
+                  </div>
+                  <div className={styles.responseGrid}>
+                    <label>
+                      SN
+                      <input value={pack.sn} onChange={(event) => updateBatteryPack(index, 'sn', event.target.value)} maxLength={100} disabled={responseClosed} />
+                    </label>
+                    <label>
+                      Asset Tag
+                      <input value={pack.asset_tag} onChange={(event) => updateBatteryPack(index, 'asset_tag', event.target.value)} maxLength={100} disabled={responseClosed} />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mutedText">Add a battery pack only when one needs to be included in the response.</p>
+          )}
+        </section>
+        <div className={styles.actions}>
+          <button type="button" className="primaryButton" onClick={handleCopyUpsResponse} disabled={responseClosed}>
+            Copy UPS Response
+          </button>
+          <button type="button" onClick={closeResponseModal}>Close</button>
+        </div>
+      </>
     );
   }
 
@@ -710,7 +947,9 @@ export default function TicketsTab() {
             <p className="mutedText">Loading response workflow...</p>
           ) : (
             <div className={styles.responseModal}>
-              {rmaEmailStep ? (
+              {responseTicket.device_type === 'ups' ? (
+                renderUpsResponse()
+              ) : rmaEmailStep ? (
                 <>
                   <div className={styles.responseHeader}>
                     <div className={styles.responseContext}>

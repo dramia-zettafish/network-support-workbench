@@ -148,6 +148,8 @@ The Tickets tab currently supports:
 - Resolution type locking after the first response is copied
 - Temporary + RMA flow with clipboard-ready RMA email handoff after the temporary response
 - RMA email generation with fixed `HISD` customer, ticket campus, defective model/SN, Dynamics Case #, and Issue
+- UPS-specific ticket response flow with editable response note, one default UPS row, optional added UPS rows, and optional battery packs
+- Copy UPS Response closes the ticket and seeds the existing UPS pending install record with the first UPS and battery pack details
 
 The standalone RMA frontend tab has been retired. RMA email handoff now lives inside the Temporary + RMA ticket response flow.
 
