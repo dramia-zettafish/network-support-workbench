@@ -231,6 +231,8 @@ Migrated Next.js API routes currently include:
 - `POST /api/ups/schedule/custom`
 - `PATCH /api/ups/{ups_installation_id}/rollback`
 
+Manual parity verification was completed locally through `http://localhost:8080` after the Next.js API migration foundation was added. Verified workflows include ticket create/edit/delete, device response create/update, UPS ticket to pending, scheduling, rollback, warehouse PO/status update, fulfillment save, completed summary, and Operations dashboard refresh.
+
 ## Dependency Notes
 
 The frontend uses:
