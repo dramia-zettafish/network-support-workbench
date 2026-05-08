@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:16
@@ -7,6 +9,7 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/network_vcode_schema.sql:/docker-entrypoint-initdb.d/001_network_vcode_schema.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -15,16 +18,20 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build: .
+  frontend:
+    build: ./frontend
     volumes:
-      - ./app:/app
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     environment:
-      DATABASE_URL: postgresql://user:password@db/tickets
+      DATABASE_URL: postgresql://user:password@db:5432/tickets
+    ports:
+      - "3000:3000"
+    command: npm run dev
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "cd /app && PYTHONPATH=/app alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
   caddy:
     image: caddy:2-alpine
@@ -32,13 +39,13 @@ services:
       - "8080:80"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
-      - ./app/static:/app/static:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
+      - frontend
 
 volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+

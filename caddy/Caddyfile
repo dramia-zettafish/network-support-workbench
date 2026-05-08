@@ -3,25 +3,5 @@
 }
 
 :80 {
-    # Serve static files
-    @static {
-        path /static/*
-    }
-    handle @static {
-        uri strip_prefix /static
-        root * /app/static
-        file_server
-    }
-
-    # Proxy API requests to FastAPI
-    handle /tickets* {
-        reverse_proxy app:8000
-    }
-
-    # Serve index.html for root and handle client-side routing
-    handle {
-        root * /app/static
-        try_files {path} /index.html
-        file_server
-    }
+    reverse_proxy frontend:3000
 }

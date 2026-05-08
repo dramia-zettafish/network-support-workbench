@@ -1,0 +1,23 @@
+.tabbar {
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.tab {
+  background: var(--bg-tab);
+  border: 1px solid var(--border-color);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: var(--text-secondary);
+  min-height: 2.65rem;
+  padding: 0.65rem 1rem;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--bg-tab-active);
+  border-color: var(--tab-active-border);
+  color: var(--tab-active-text);
+}
