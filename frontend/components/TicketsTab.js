@@ -39,18 +39,6 @@ const statusToneMap = {
   closed: 'neutral'
 };
 
-const responseStatusLabelMap = {
-  open: 'Open',
-  temp_placed: 'Temp Device in Place',
-  closed: 'Closed'
-};
-
-const responseStatusToneMap = {
-  open: 'success',
-  temp_placed: 'warning',
-  closed: 'neutral'
-};
-
 const emptyResponse = {
   resolution_type: 'permanent',
   status: 'open',
@@ -324,11 +312,21 @@ export default function TicketsTab() {
     return savedResponse;
   }
 
+  async function closeTicketStatus() {
+    if (!responseTicket) return;
+    await apiRequest(`/tickets/${responseTicket.ticket_number}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'closed' })
+    });
+  }
+
   async function handleCopyPermanentResponse() {
     try {
       await saveResponse('closed');
       await copyTextToClipboard(buildPermanentResponseText(responseForm));
+      await closeTicketStatus();
       closeResponseModal();
+      loadTickets();
       setMessage({ type: 'success', text: 'Permanent replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy permanent replacement response.' });
@@ -339,7 +337,9 @@ export default function TicketsTab() {
     try {
       await saveResponse('closed');
       await copyTextToClipboard(buildNoReplacementResponseText(responseForm));
+      await closeTicketStatus();
       closeResponseModal();
+      loadTickets();
       setMessage({ type: 'success', text: 'No replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy no replacement response.' });
@@ -351,7 +351,7 @@ export default function TicketsTab() {
       await saveResponse('temp_placed');
       await copyTextToClipboard(buildTempResponseText(responseForm));
       closeResponseModal();
-      setMessage({ type: 'success', text: 'Temporary device response copied. Status set to Temp Device in Place.' });
+      setMessage({ type: 'success', text: 'Temporary device response copied. Status set to Temp Installed.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy temporary device response.' });
     }
@@ -361,7 +361,9 @@ export default function TicketsTab() {
     try {
       await saveResponse('closed');
       await copyTextToClipboard(buildRmaResponseText(responseForm));
+      await closeTicketStatus();
       closeResponseModal();
+      loadTickets();
       setMessage({ type: 'success', text: 'RMA replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy RMA replacement response.' });
@@ -447,11 +449,21 @@ export default function TicketsTab() {
       '',
       form.response_note || '',
       '',
+      'Device Information:',
+      fieldLine('Model', form.replacement_model),
+      fieldLine('SN', form.replacement_sn),
+      fieldLine('MAC', form.replacement_mac),
+      fieldLine('Hostname', form.replacement_hostname),
+      fieldLine('IP', form.replacement_ip),
+      fieldLine('Asset Tag', form.replacement_asset_tag),
+      fieldLine('Room', form.replacement_room),
+      '',
       'Could you please update the ticket. Thank You!'
     ].join('\n');
   }
 
   const responseTypeLocked = Boolean(responseRecord?.resolution_locked_at);
+  const responseClosed = responseForm.status === 'closed';
   const rmaPhaseUnlocked = responseForm.status === 'temp_placed' || responseForm.status === 'closed';
   const showRmaOnly = responseForm.resolution_type === 'temp_rma' && rmaPhaseUnlocked;
 
@@ -643,12 +655,6 @@ export default function TicketsTab() {
                   <span>{responseTicket.school_name}</span>
                   <strong>{reverseDeviceTypeMap[responseTicket.device_type] || responseTicket.device_type}</strong>
                 </div>
-                <div>
-                  <span className="mutedText">Response Status</span>
-                  <StatusBadge tone={responseStatusToneMap[responseForm.status] || 'neutral'}>
-                    {responseStatusLabelMap[responseForm.status] || responseForm.status}
-                  </StatusBadge>
-                </div>
               </div>
 
               {responseTypeLocked && (
@@ -664,10 +670,14 @@ export default function TicketsTab() {
                       onChange={(event) => updateResponseForm('response_note', event.target.value)}
                       maxLength={2000}
                       rows={6}
+                      disabled={responseClosed}
                     />
                   </label>
+                  <div className={styles.responseSections}>
+                    {renderDeviceFields('Device Information', replacementFields, responseClosed)}
+                  </div>
                   <div className={styles.actions}>
-                    <button type="button" className="primaryButton" onClick={handleCopyNoReplacementResponse}>
+                    <button type="button" className="primaryButton" onClick={handleCopyNoReplacementResponse} disabled={responseClosed}>
                       Copy Response
                     </button>
                     <button type="button" onClick={closeResponseModal}>Close</button>
@@ -682,14 +692,15 @@ export default function TicketsTab() {
                       onChange={(event) => updateResponseForm('response_note', event.target.value)}
                       maxLength={2000}
                       rows={4}
+                      disabled={responseClosed}
                     />
                   </label>
                   <div className={styles.responseSections}>
-                    {renderDeviceFields('Defective Device', defectiveFields)}
-                    {renderDeviceFields('Replacement Device', replacementFields)}
+                    {renderDeviceFields('Defective Device', defectiveFields, responseClosed)}
+                    {renderDeviceFields('Replacement Device', replacementFields, responseClosed)}
                   </div>
                   <div className={styles.actions}>
-                    <button type="button" className="primaryButton" onClick={handleCopyPermanentResponse}>
+                    <button type="button" className="primaryButton" onClick={handleCopyPermanentResponse} disabled={responseClosed}>
                       Copy Response
                     </button>
                     <button type="button" onClick={closeResponseModal}>Close</button>
@@ -707,45 +718,45 @@ export default function TicketsTab() {
                           onChange={(event) => updateResponseForm('temp_response_note', event.target.value)}
                           maxLength={2000}
                           rows={4}
+                          disabled={responseClosed}
                         />
                       </label>
                       <div className={styles.responseSections}>
-                        {renderDeviceFields('Defective Device', defectiveFields)}
-                        {renderDeviceFields('Temporary Device', tempFields)}
+                        {renderDeviceFields('Defective Device', defectiveFields, responseClosed)}
+                        {renderDeviceFields('Temporary Device', tempFields, responseClosed)}
                       </div>
                       <div className={styles.actions}>
-                        <button type="button" className="primaryButton" onClick={handleCopyTempResponse}>
+                        <button type="button" className="primaryButton" onClick={handleCopyTempResponse} disabled={responseClosed}>
                           Copy Temporary Response
                         </button>
                       </div>
                     </section>
                   )}
 
-                  <section className={styles.responsePhase}>
-                    <h3>Phase 2 - RMA Replacement</h3>
-                    {!rmaPhaseUnlocked && (
-                      <p className="mutedText">Copy the temporary device response before adding the RMA replacement response.</p>
-                    )}
-                    <label className={styles.fullWidthLabel}>
-                      RMA Response Note
-                      <textarea
-                        value={responseForm.rma_response_note}
-                        onChange={(event) => updateResponseForm('rma_response_note', event.target.value)}
-                        maxLength={2000}
-                        rows={4}
-                        disabled={!rmaPhaseUnlocked}
-                      />
-                    </label>
-                    <div className={styles.responseSections}>
-                      {renderDeviceFields('Replacement Device', replacementFields, !rmaPhaseUnlocked)}
-                    </div>
-                    <div className={styles.actions}>
-                      <button type="button" className="primaryButton" onClick={handleCopyRmaResponse} disabled={!rmaPhaseUnlocked}>
-                        Copy RMA Response
-                      </button>
-                      <button type="button" onClick={closeResponseModal}>Close</button>
-                    </div>
-                  </section>
+                  {rmaPhaseUnlocked && (
+                    <section className={styles.responsePhase}>
+                      <h3>Phase 2 - RMA Replacement</h3>
+                      <label className={styles.fullWidthLabel}>
+                        RMA Response Note
+                        <textarea
+                          value={responseForm.rma_response_note}
+                          onChange={(event) => updateResponseForm('rma_response_note', event.target.value)}
+                          maxLength={2000}
+                          rows={4}
+                          disabled={responseClosed}
+                        />
+                      </label>
+                      <div className={styles.responseSections}>
+                        {renderDeviceFields('Replacement Device', replacementFields, responseClosed)}
+                      </div>
+                      <div className={styles.actions}>
+                        <button type="button" className="primaryButton" onClick={handleCopyRmaResponse} disabled={responseClosed}>
+                          Copy RMA Response
+                        </button>
+                        <button type="button" onClick={closeResponseModal}>Close</button>
+                      </div>
+                    </section>
+                  )}
                 </>
               )}
             </div>
