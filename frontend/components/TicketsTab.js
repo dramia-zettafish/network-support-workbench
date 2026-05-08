@@ -40,7 +40,7 @@ const statusToneMap = {
 };
 
 const emptyResponse = {
-  resolution_type: 'permanent',
+  resolution_type: 'no_replacement',
   status: 'open',
   response_note: '',
   temp_response_note: '',
@@ -97,7 +97,7 @@ const tempFields = [
 export default function TicketsTab() {
   const [ticketForm, setTicketForm] = useState(emptyTicket);
   const [tickets, setTickets] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('open');
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -320,6 +320,14 @@ export default function TicketsTab() {
     });
   }
 
+  async function holdTicketStatus() {
+    if (!responseTicket) return;
+    await apiRequest(`/tickets/${responseTicket.ticket_number}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'on_hold' })
+    });
+  }
+
   async function handleCopyPermanentResponse() {
     try {
       await saveResponse('closed');
@@ -350,7 +358,9 @@ export default function TicketsTab() {
     try {
       await saveResponse('temp_placed');
       await copyTextToClipboard(buildTempResponseText(responseForm));
+      await holdTicketStatus();
       closeResponseModal();
+      loadTickets();
       setMessage({ type: 'success', text: 'Temporary device response copied. Status set to Temp Installed.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy temporary device response.' });
@@ -485,6 +495,21 @@ export default function TicketsTab() {
           ))}
         </div>
       </div>
+    );
+  }
+
+  function renderResponseNote(label, field, rows = 4) {
+    return (
+      <label className={styles.fullWidthLabel}>
+        {label}
+        <textarea
+          value={responseForm[field]}
+          onChange={(event) => updateResponseForm(field, event.target.value)}
+          maxLength={2000}
+          rows={rows}
+          disabled={responseClosed}
+        />
+      </label>
     );
   }
 
@@ -663,19 +688,10 @@ export default function TicketsTab() {
 
               {responseForm.resolution_type === 'no_replacement' ? (
                 <>
-                  <label className={styles.fullWidthLabel}>
-                    Response Note
-                    <textarea
-                      value={responseForm.response_note}
-                      onChange={(event) => updateResponseForm('response_note', event.target.value)}
-                      maxLength={2000}
-                      rows={6}
-                      disabled={responseClosed}
-                    />
-                  </label>
                   <div className={styles.responseSections}>
                     {renderDeviceFields('Device Information', replacementFields, responseClosed)}
                   </div>
+                  {renderResponseNote('Response Note', 'response_note', 5)}
                   <div className={styles.actions}>
                     <button type="button" className="primaryButton" onClick={handleCopyNoReplacementResponse} disabled={responseClosed}>
                       Copy Response
@@ -685,20 +701,11 @@ export default function TicketsTab() {
                 </>
               ) : responseForm.resolution_type === 'permanent' ? (
                 <>
-                  <label className={styles.fullWidthLabel}>
-                    Response Note
-                    <textarea
-                      value={responseForm.response_note}
-                      onChange={(event) => updateResponseForm('response_note', event.target.value)}
-                      maxLength={2000}
-                      rows={4}
-                      disabled={responseClosed}
-                    />
-                  </label>
                   <div className={styles.responseSections}>
                     {renderDeviceFields('Defective Device', defectiveFields, responseClosed)}
                     {renderDeviceFields('Replacement Device', replacementFields, responseClosed)}
                   </div>
+                  {renderResponseNote('Response Note', 'response_note')}
                   <div className={styles.actions}>
                     <button type="button" className="primaryButton" onClick={handleCopyPermanentResponse} disabled={responseClosed}>
                       Copy Response
@@ -711,20 +718,11 @@ export default function TicketsTab() {
                   {!showRmaOnly && (
                     <section className={styles.responsePhase}>
                       <h3>Phase 1 - Temporary Device</h3>
-                      <label className={styles.fullWidthLabel}>
-                        Temp Response Note
-                        <textarea
-                          value={responseForm.temp_response_note}
-                          onChange={(event) => updateResponseForm('temp_response_note', event.target.value)}
-                          maxLength={2000}
-                          rows={4}
-                          disabled={responseClosed}
-                        />
-                      </label>
                       <div className={styles.responseSections}>
                         {renderDeviceFields('Defective Device', defectiveFields, responseClosed)}
                         {renderDeviceFields('Temporary Device', tempFields, responseClosed)}
                       </div>
+                      {renderResponseNote('Temp Response Note', 'temp_response_note')}
                       <div className={styles.actions}>
                         <button type="button" className="primaryButton" onClick={handleCopyTempResponse} disabled={responseClosed}>
                           Copy Temporary Response
@@ -736,19 +734,10 @@ export default function TicketsTab() {
                   {rmaPhaseUnlocked && (
                     <section className={styles.responsePhase}>
                       <h3>Phase 2 - RMA Replacement</h3>
-                      <label className={styles.fullWidthLabel}>
-                        RMA Response Note
-                        <textarea
-                          value={responseForm.rma_response_note}
-                          onChange={(event) => updateResponseForm('rma_response_note', event.target.value)}
-                          maxLength={2000}
-                          rows={4}
-                          disabled={responseClosed}
-                        />
-                      </label>
                       <div className={styles.responseSections}>
                         {renderDeviceFields('Replacement Device', replacementFields, responseClosed)}
                       </div>
+                      {renderResponseNote('RMA Response Note', 'rma_response_note')}
                       <div className={styles.actions}>
                         <button type="button" className="primaryButton" onClick={handleCopyRmaResponse} disabled={responseClosed}>
                           Copy RMA Response
