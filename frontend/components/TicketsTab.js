@@ -94,6 +94,11 @@ const tempFields = [
   ['temp_room', 'Room']
 ];
 
+const emptyRmaEmail = {
+  dynamics_case_number: '',
+  issue: ''
+};
+
 export default function TicketsTab() {
   const [ticketForm, setTicketForm] = useState(emptyTicket);
   const [tickets, setTickets] = useState([]);
@@ -108,6 +113,8 @@ export default function TicketsTab() {
   const [responseRecord, setResponseRecord] = useState(null);
   const [responseForm, setResponseForm] = useState(emptyResponse);
   const [responseLoading, setResponseLoading] = useState(false);
+  const [rmaEmailStep, setRmaEmailStep] = useState(false);
+  const [rmaEmailForm, setRmaEmailForm] = useState(emptyRmaEmail);
 
   useEffect(() => {
     loadTickets();
@@ -259,6 +266,8 @@ export default function TicketsTab() {
     setResponseTicket(ticket);
     setResponseRecord(null);
     setResponseForm(emptyResponse);
+    setRmaEmailStep(false);
+    setRmaEmailForm(emptyRmaEmail);
     setResponseLoading(true);
 
     try {
@@ -277,6 +286,8 @@ export default function TicketsTab() {
     setResponseTicket(null);
     setResponseRecord(null);
     setResponseForm(emptyResponse);
+    setRmaEmailStep(false);
+    setRmaEmailForm(emptyRmaEmail);
     setResponseLoading(false);
   }
 
@@ -288,6 +299,10 @@ export default function TicketsTab() {
 
   function updateResponseForm(field, value) {
     setResponseForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateRmaEmailForm(field, value) {
+    setRmaEmailForm((current) => ({ ...current, [field]: value }));
   }
 
   function normalizeResponsePayload(statusOverride) {
@@ -359,11 +374,21 @@ export default function TicketsTab() {
       await saveResponse('temp_placed');
       await copyTextToClipboard(buildTempResponseText(responseForm));
       await holdTicketStatus();
-      closeResponseModal();
+      setRmaEmailStep(true);
       loadTickets();
-      setMessage({ type: 'success', text: 'Temporary device response copied. Status set to Temp Installed.' });
+      setMessage({ type: 'success', text: 'Temporary device response copied. Prepare the RMA email next.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy temporary device response.' });
+    }
+  }
+
+  async function handleCopyRmaEmail() {
+    try {
+      await copyTextToClipboard(buildRmaEmailText(responseTicket, responseForm, rmaEmailForm));
+      closeResponseModal();
+      setMessage({ type: 'success', text: 'RMA email copied.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to copy RMA email.' });
     }
   }
 
@@ -450,6 +475,29 @@ export default function TicketsTab() {
       fieldLine('IP', form.replacement_ip),
       fieldLine('Asset Tag', form.replacement_asset_tag),
       fieldLine('Room', form.replacement_room)
+    ].join('\n');
+  }
+
+  function getDevicePhrase(deviceType) {
+    if (deviceType === 'access_point') return 'AP';
+    if (deviceType === 'switch') return 'switch';
+    if (deviceType === 'ups') return 'UPS';
+    return 'device';
+  }
+
+  function buildRmaEmailText(ticket, form, emailForm) {
+    const devicePhrase = getDevicePhrase(ticket?.device_type);
+    return [
+      getGreeting(),
+      '',
+      `We were unable to fix the issue with this ${devicePhrase} and need a replacement for it. Could you process the RMA for this device please?`,
+      '',
+      'Customer: HISD',
+      `Campus: ${ticket?.school_name || '-'}`,
+      `Dynamics Case#: ${emailForm.dynamics_case_number || '-'}`,
+      `Part Number/Model: ${form.defective_model || '-'}`,
+      `Defective SN: ${form.defective_sn || '-'}`,
+      `Issue: ${emailForm.issue || '-'}`
     ].join('\n');
   }
 
@@ -662,6 +710,60 @@ export default function TicketsTab() {
             <p className="mutedText">Loading response workflow...</p>
           ) : (
             <div className={styles.responseModal}>
+              {rmaEmailStep ? (
+                <>
+                  <div className={styles.responseHeader}>
+                    <div className={styles.responseContext}>
+                      <span>{responseTicket.school_name}</span>
+                      <strong>RMA Email</strong>
+                    </div>
+                  </div>
+                  <div className={styles.rmaEmailGrid}>
+                    <div className={styles.readOnlyField}>
+                      <span>Customer</span>
+                      <strong>HISD</strong>
+                    </div>
+                    <div className={styles.readOnlyField}>
+                      <span>Campus</span>
+                      <strong>{responseTicket.school_name}</strong>
+                    </div>
+                    <div className={styles.readOnlyField}>
+                      <span>Part Number/Model</span>
+                      <strong>{responseForm.defective_model || '-'}</strong>
+                    </div>
+                    <div className={styles.readOnlyField}>
+                      <span>Defective SN</span>
+                      <strong>{responseForm.defective_sn || '-'}</strong>
+                    </div>
+                  </div>
+                  <div className={styles.responseSections}>
+                    <label>
+                      Dynamics Case #
+                      <input
+                        value={rmaEmailForm.dynamics_case_number}
+                        onChange={(event) => updateRmaEmailForm('dynamics_case_number', event.target.value)}
+                        maxLength={32}
+                      />
+                    </label>
+                    <label>
+                      Issue
+                      <textarea
+                        value={rmaEmailForm.issue}
+                        onChange={(event) => updateRmaEmailForm('issue', event.target.value)}
+                        maxLength={1000}
+                        rows={4}
+                      />
+                    </label>
+                  </div>
+                  <div className={styles.actions}>
+                    <button type="button" className="primaryButton" onClick={handleCopyRmaEmail}>
+                      Copy RMA Email
+                    </button>
+                    <button type="button" onClick={closeResponseModal}>Close</button>
+                  </div>
+                </>
+              ) : (
+                <>
               <div className={styles.responseHeader}>
                 {!responseTypeLocked && (
                   <label>
@@ -746,6 +848,8 @@ export default function TicketsTab() {
                       </div>
                     </section>
                   )}
+                </>
+              )}
                 </>
               )}
             </div>

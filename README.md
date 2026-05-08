@@ -116,10 +116,9 @@ The Next.js app currently includes:
 - Light mode through `data-theme="light"` on `<html>`
 - Persistent app shell
 - Left sidebar with `Dashboard`, `Networking`, `Inventory`, `Reports`, and `Settings`
-- Networking workspace top tabs with `Operations`, `Tickets`, `UPS`, and `RMA`
+- Networking workspace top tabs with `Operations`, `Tickets`, and `UPS`
 - Functional Operations landing page with mock control-center data
 - Functional Tickets tab
-- Functional RMA tab
 - UPS foundation view with Pending and In Progress tables
 
 Shared components currently include:
@@ -143,19 +142,14 @@ The Tickets tab currently supports:
 - Edit modal
 - Delete action
 - Row-click Device Response modal for AP and switch response workflows
+- No Replacement response as the default modal workflow
 - Permanent replacement response template copied to clipboard
 - Temporary device plus RMA replacement response templates copied to clipboard
-- Response status badge per ticket row
 - Resolution type locking after the first response is copied
+- Temporary + RMA flow with clipboard-ready RMA email handoff after the temporary response
+- RMA email generation with fixed `HISD` customer, ticket campus, defective model/SN, Dynamics Case #, and Issue
 
-The RMA tab currently supports:
-
-- RMA creation
-- RMA list/search
-- Edit modal
-- Delete action
-- Related open-ticket dropdown
-- Clipboard-ready admin prompt after creation
+The standalone RMA frontend tab has been retired. RMA email handoff now lives inside the Temporary + RMA ticket response flow.
 
 The UPS tab currently supports:
 
@@ -189,7 +183,7 @@ The backend remains FastAPI and PostgreSQL. Alembic runs automatically when the 
 Current migration head:
 
 ```text
-012_add_ticket_mdf_idf
+014_no_replacement_response
 ```
 
 Important existing backend behavior:
@@ -200,7 +194,8 @@ Important existing backend behavior:
 - Ticket edits are limited to `note` and `status`.
 - Device responses are stored one per ticket in `device_responses`.
 - Device response routes live under `/tickets/{ticket_number}/response`.
-- RMA and UPS backend routes are available through the Next.js workspace.
+- Legacy RMA backend routes remain available but are no longer exposed in the Next.js workspace.
+- UPS backend routes are available through the Next.js workspace.
 
 ## Dependency Notes
 
@@ -227,4 +222,4 @@ For the next phase, keep the migration baseline behavior intact while building t
 - Keep API calls behind `/api/*`.
 - Keep colors in CSS variables.
 - Prefer shared layout primitives before adding new workflow-specific screens.
-- Bring RMA and UPS into Next.js after the app shell pattern is stable.
+- Keep legacy backend routes dormant unless a future cleanup task explicitly removes them.

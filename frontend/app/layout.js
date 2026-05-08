@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'End User Operations Network Team',
-  description: 'Ticket, RMA, and UPS workflow tracker'
+  description: 'Ticket and UPS workflow tracker'
 };
 
 export default function RootLayout({ children }) {

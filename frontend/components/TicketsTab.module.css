@@ -87,7 +87,8 @@
 
 .responseHeader label,
 .fullWidthLabel,
-.responseGrid label {
+.responseGrid label,
+.responseSections label {
   color: var(--text-secondary);
   display: grid;
   font-weight: 600;
@@ -149,6 +150,38 @@
   min-height: 2.25rem;
 }
 
+.rmaEmailGrid {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.readOnlyField {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem;
+}
+
+.readOnlyField:last-child {
+  border-right: 0;
+}
+
+.readOnlyField span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.readOnlyField strong {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 1060px) {
   .layout {
     grid-template-columns: 1fr;
@@ -156,6 +189,18 @@
 
   .responseSections {
     grid-template-columns: 1fr;
+  }
+
+  .rmaEmailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .readOnlyField {
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .readOnlyField:nth-child(even) {
+    border-right: 0;
   }
 }
 
@@ -177,5 +222,13 @@
 
   .pagination {
     justify-content: flex-start;
+  }
+
+  .rmaEmailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .readOnlyField {
+    border-right: 0;
   }
 }
