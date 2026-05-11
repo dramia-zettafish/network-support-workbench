@@ -100,14 +100,14 @@ Tracks resolution steps for switch and access point tickets. One response per ti
 
 ### 3. UPS Installation
 
-Tracks UPS replacement workflow with multi-phase installation process. Auto-created when ticket with `device_type=ups` is created.
+Tracks UPS replacement workflow with multi-phase installation process. Auto-created when ticket with `device_type=ups` is created. Historical imports may also create standalone fulfilled UPS records without linked ticket rows.
 
 **Attributes:**
 - `ups_installation_id` (integer, auto-incremented)
-- `ticket_number` (integer, required, foreign key to Ticket, unique)
+- `ticket_number` (integer, nullable, foreign key to Ticket, unique when present)
 - `external_ticket_number` (string, ≤8 chars, optional)
 - `school_name` (string, required)
-- `tea_code` (integer, 0-999, required)
+- `tea_code` (integer, 0-999, nullable for historical standalone rows)
 - `created_date` (date, required)
 - `status` (enum: `intake`, `scheduled`, `servicing`, `fulfilled`, required, default: `intake`)
 
@@ -141,8 +141,8 @@ Tracks UPS replacement workflow with multi-phase installation process. Auto-crea
 - `install_contact_number` (string, optional)
 
 **Constraints:**
-- One UPS installation per ticket (unique ticket_number)
-- TEA code must be 3 digits (0-999)
+- One UPS installation per linked ticket (unique ticket_number when present)
+- TEA code must be 3 digits (0-999) when present
 - External ticket number must be ≤8 characters
 
 **Indexes:**
@@ -554,58 +554,60 @@ Once locked:
 
 ---
 
-### Workflow 9: UPS Installation - Phase 3 Device Fulfillment
+### Workflow 9: UPS Installation - Fulfillment to Completed
 
-**Trigger:** User clicks on servicing installation to edit Phase 3 device details
+**Trigger:** User clicks a servicing installation and chooses "Move to Completed" from the fulfillment modal
 
 **Prerequisites:**
 - UPS Installation status = `servicing`
-- Phase 2 data complete
+- Warehouse step complete
 
 **Input:**
-- Phase 3 fields (any subset):
-  - Approved Install Date
-  - Install Contact Name
-  - Install Contact Number
-  - Additional fulfillment notes
+- Fulfillment fields:
+  - Asset Tag #
+  - UPS SN
+  - SNMPWEBCARD SN
+  - SNMP IP
+  - Battery Pack SN
+  - Battery Pack Asset Tag #
 
 **Process:**
-1. Validate input (date format, phone format if provided, string lengths)
+1. Validate input (string lengths)
 2. Update UPS Installation:
-   - Populate Phase 3 fields
-   - Status remains = `servicing` (does NOT auto-complete)
-3. Display Phase 3 completion confirmation
+   - Populate fulfillment fields
+   - Transition status = `fulfilled`
+3. Close modal and refresh UPS queues
 
 **Output:**
-- Phase 3 fields saved to UPS Installation record
-- Modal allows user to save and continue
+- Fulfillment fields saved to UPS Installation record
+- Installation appears in Completed
 
 **Side Effects:**
-- Installation remains in `servicing` until explicitly completed
+- Installation leaves active In Progress queues
 
 ---
 
-### Workflow 10: UPS Installation - Servicing to Fulfilled
+### Workflow 10: UPS Installation - Completed Lookup and Edit
 
-**Trigger:** User selects in-progress installations and clicks "Move to Completed"
+**Trigger:** User searches/clicks a completed UPS row
 
 **Prerequisites:**
-- UPS Installation(s) status = `servicing`
-- One or more installations selected
+- UPS Installation status = `fulfilled`
 
 **Process:**
-1. For each selected installation:
-   - Transition status = `fulfilled`
-   - Record completion
+1. Display full completed UPS details
+2. If user clicks Edit:
+   - Allow editing asset/reference fields
+   - Save through UPS installation update route
+   - Keep status = `fulfilled`
 
 **Output:**
-- Multiple installations transitioned to `fulfilled`
-- Installations appear in "Completed" table
+- Completed UPS detail modal
+- Updated asset/reference fields when saved
 
 **Side Effects:**
-- Completed installations no longer in active workflow
-- Completed table searchable by all fields
-- Full asset details (asset tag, UPS SN, MAC, SNMP IP) visible
+- Completed table remains a historical lookup surface
+- Completed rows do not re-enter active workflow
 
 ---
 
@@ -650,19 +652,19 @@ Once locked:
 ### 3. UPS Installation → Ticket
 
 - **Trigger:** UPS Ticket creation
-- **Link:** Unique constraint (one UPS Installation per Ticket)
+- **Link:** Unique constraint when ticket_number is present (one UPS Installation per Ticket)
 - **Data Flow:** Ticket external number and dates seed UPS Installation
+- **Historical Exception:** Imported historical UPS rows may have `ticket_number = NULL` and must not create Ticket records
 
 ### 4. Dashboard Aggregations
 
 - **Open Tickets Count:** `SELECT COUNT(*) FROM tickets WHERE status = 'open'`
 - **On-Hold Detail:** `SELECT * FROM tickets WHERE status = 'on_hold'`
-- **Open/On-Hold Preview:** First N tickets sorted by date
+- **Open/On-Hold Preview:** First N tickets sorted by date; row click opens the ticket response modal in the Tickets workflow
 - **UPS This Week:**
   - Pending: `SELECT COUNT(*) FROM ups_installations WHERE status = 'intake'`
   - Current week: `SELECT COUNT(*) FROM ups_installations WHERE status IN ('scheduled', 'servicing') AND WEEK(proposed_install_date) = CURRENT_WEEK`
-- **Weekly Table:** All UPS with proposed_install_date in next 7 days, grouped by date
-- **Recent Closed Work:** Union of closed tickets and fulfilled UPS (recent 20)
+- **Weekly Table:** All UPS with proposed_install_date in the current work week; row click navigates to the UPS workflow
 
 ---
 

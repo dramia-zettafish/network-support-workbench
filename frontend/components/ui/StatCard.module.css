@@ -3,10 +3,22 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: var(--card-shadow);
+  color: inherit;
   display: grid;
   gap: 0.35rem;
   min-height: 118px;
   padding: 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  background: var(--bg-alt);
+  border-color: var(--accent-secondary);
 }
 
 .topline {

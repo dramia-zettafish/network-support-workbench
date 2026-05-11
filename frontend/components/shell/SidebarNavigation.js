@@ -17,7 +17,7 @@ export default function SidebarNavigation({ items, activeItem, onChange }) {
             key={item.id}
             type="button"
             aria-current={activeItem === item.id ? 'page' : undefined}
-            onClick={() => onChange(item.id)}
+            onClick={() => onChange?.(item.id)}
           >
             <span>{item.label}</span>
             {item.meta && <small>{item.meta}</small>}

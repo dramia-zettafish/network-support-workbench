@@ -21,6 +21,18 @@ const emptyFulfillmentForm = {
   new_battery_pack_asset_tag: ''
 };
 
+const completedEditableFields = [
+  ['asset_tag', 'Asset Tag #'],
+  ['new_serial_number', 'UPS SN'],
+  ['new_webcard_serial', 'SNMPWEBCARD SN'],
+  ['mac_address', 'MAC'],
+  ['snmp_ip', 'SNMP IP'],
+  ['new_battery_pack_serial', 'BP SN'],
+  ['new_battery_pack_asset_tag', 'BP Asset Tag #'],
+  ['ups_po', 'UPS PO'],
+  ['bp_po', 'BP PO']
+];
+
 function getNextMondayIsoDate() {
   const date = new Date();
   const day = date.getDay();
@@ -45,6 +57,8 @@ export default function UpsPage({ onNavigate }) {
   const [fulfillmentInstall, setFulfillmentInstall] = useState(null);
   const [fulfillmentForm, setFulfillmentForm] = useState(emptyFulfillmentForm);
   const [completedSummaryInstall, setCompletedSummaryInstall] = useState(null);
+  const [completedSummaryEditing, setCompletedSummaryEditing] = useState(false);
+  const [completedSummaryForm, setCompletedSummaryForm] = useState({});
 
   useEffect(() => {
     loadUpsInstallations();
@@ -403,6 +417,8 @@ export default function UpsPage({ onNavigate }) {
 
   function closeCompletedSummaryModal() {
     setCompletedSummaryInstall(null);
+    setCompletedSummaryEditing(false);
+    setCompletedSummaryForm({});
   }
 
   function updateFulfillmentForm(field, value) {
@@ -414,38 +430,19 @@ export default function UpsPage({ onNavigate }) {
     if (!fulfillmentInstall) return;
 
     try {
-      await apiRequest(`/ups-installations/${fulfillmentInstall.ups_installation_id}/phase3-devices`, {
+      const updatedInstall = await apiRequest(`/ups-installations/${fulfillmentInstall.ups_installation_id}/phase3-devices`, {
         method: 'PATCH',
         body: JSON.stringify(normalizeFulfillmentPayload(fulfillmentForm))
       });
-      setMessage({ type: 'success', text: 'UPS fulfillment details saved.' });
+      await apiRequest(`/ups-installations/${updatedInstall.ups_installation_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'fulfilled' })
+      });
+      setMessage({ type: 'success', text: 'UPS fulfillment details saved and moved to Completed.' });
       closeFulfillmentModal();
       loadUpsInstallations();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save UPS fulfillment details.' });
-    }
-  }
-
-  async function handleMoveToCompleted() {
-    const selectedIds = Array.from(selectedInProgressIds);
-    if (selectedIds.length === 0) return;
-
-    const shouldMove = window.confirm(`Move ${selectedIds.length} UPS record${selectedIds.length === 1 ? '' : 's'} to Completed?`);
-    if (!shouldMove) return;
-
-    try {
-      await Promise.all(
-        selectedIds.map((id) =>
-          apiRequest(`/ups-installations/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ status: 'fulfilled' })
-          })
-        )
-      );
-      setMessage({ type: 'success', text: 'Selected UPS records moved to Completed.' });
-      loadUpsInstallations();
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to move selected UPS records to Completed.' });
+      setMessage({ type: 'error', text: 'Failed to move UPS record to Completed.' });
     }
   }
 
@@ -453,6 +450,40 @@ export default function UpsPage({ onNavigate }) {
     return Object.fromEntries(
       Object.entries(form).map(([key, value]) => [key, value.trim() || null])
     );
+  }
+
+  function openCompletedSummaryModal(install) {
+    setCompletedSummaryInstall(install);
+    setCompletedSummaryEditing(false);
+    setCompletedSummaryForm(buildCompletedSummaryForm(install));
+  }
+
+  function buildCompletedSummaryForm(install) {
+    return Object.fromEntries(
+      completedEditableFields.map(([field]) => [field, install?.[field] || ''])
+    );
+  }
+
+  function updateCompletedSummaryForm(field, value) {
+    setCompletedSummaryForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleSaveCompletedSummary() {
+    if (!completedSummaryInstall) return;
+
+    try {
+      const updatedInstall = await apiRequest(`/ups-installations/${completedSummaryInstall.ups_installation_id}`, {
+        method: 'PUT',
+        body: JSON.stringify(normalizeFulfillmentPayload(completedSummaryForm))
+      });
+      setCompletedSummaryInstall(updatedInstall);
+      setCompletedSummaryForm(buildCompletedSummaryForm(updatedInstall));
+      setCompletedSummaryEditing(false);
+      setMessage({ type: 'success', text: 'Completed UPS details updated.' });
+      loadUpsInstallations();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to update completed UPS details.' });
+    }
   }
 
   async function handleCopyWarehouseTable() {
@@ -619,26 +650,19 @@ export default function UpsPage({ onNavigate }) {
 
         <SectionCard
           title="In Progress"
-          description="Select scheduled records to copy the warehouse table or move completed installs out of active work."
+          description="Select scheduled records to copy the warehouse table. Servicing rows open fulfillment and move to Completed from the modal."
           actions={
             <div className={styles.sectionActions}>
               <SelectionHint count={selectedInProgressIds.size} label="in progress selected" />
               {visibleScheduledInProgressIds.length > 0 && (
                 <button type="button" className="secondaryButton" onClick={handleToggleVisibleScheduledSelection}>
-                  {allVisibleScheduledSelected ? 'Clear Scheduled' : 'Select Scheduled'}
+                  {allVisibleScheduledSelected ? 'Clear All' : 'Select All'}
                 </button>
               )}
               {selectedScheduledInProgressCount > 0 && (
                 <button type="button" className="primaryButton" onClick={openWarehouseModal}>
                   Copy Warehouse Table
                 </button>
-              )}
-              {selectedInProgressIds.size > 0 && (
-                <>
-                  <button type="button" className="successButton" onClick={handleMoveToCompleted}>
-                    Move to Completed
-                  </button>
-                </>
               )}
             </div>
           }
@@ -677,7 +701,7 @@ export default function UpsPage({ onNavigate }) {
               columns={completedColumns}
               rows={visibleCompletedInstalls}
               getRowKey={(install) => install.ups_installation_id}
-              onRowClick={setCompletedSummaryInstall}
+              onRowClick={openCompletedSummaryModal}
             />
           ) : (
             <EmptyState title="No completed UPS installs" description="Move fulfilled UPS records from In Progress when the install is complete." />
@@ -821,7 +845,7 @@ export default function UpsPage({ onNavigate }) {
               </label>
             </div>
             <div className={styles.actions}>
-              <button type="submit" className="primaryButton">Save Fulfillment</button>
+              <button type="submit" className="successButton">Move to Completed</button>
               <button type="button" className="secondaryButton" onClick={closeFulfillmentModal}>Cancel</button>
             </div>
           </form>
@@ -830,27 +854,50 @@ export default function UpsPage({ onNavigate }) {
 
       {completedSummaryInstall && (
         <Modal title="UPS Details" onClose={closeCompletedSummaryModal}>
-          <div className={styles.summaryDetails}>
-            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
-            <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
-            <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code || '-'} />
-            <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf || '-'} />
-            <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date || '-'} />
-            <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
-            <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number || '-'} />
-            <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial || '-'} />
-            <ReadOnlyField label="Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
-            <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number || '-'} />
-            <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial || '-'} />
-            <ReadOnlyField label="MAC" value={completedSummaryInstall.mac_address || '-'} />
-            <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip || '-'} />
-            <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial || '-'} />
-            <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag || '-'} />
-            <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po || '-'} />
-            <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po || '-'} />
-            <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
-          </div>
+          {completedSummaryEditing ? (
+            <div className={styles.completedEditGrid}>
+              {completedEditableFields.map(([field, label]) => (
+                <label key={field}>
+                  {label}
+                  <input
+                    value={completedSummaryForm[field] || ''}
+                    onChange={(event) => updateCompletedSummaryForm(field, event.target.value)}
+                    maxLength={field === 'mac_address' ? 32 : 100}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.summaryDetails}>
+              <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
+              <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
+              <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code || '-'} />
+              <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf || '-'} />
+              <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date || '-'} />
+              <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
+              <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number || '-'} />
+              <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial || '-'} />
+              <ReadOnlyField label="Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
+              <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number || '-'} />
+              <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial || '-'} />
+              <ReadOnlyField label="MAC" value={completedSummaryInstall.mac_address || '-'} />
+              <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip || '-'} />
+              <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial || '-'} />
+              <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag || '-'} />
+              <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po || '-'} />
+              <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po || '-'} />
+              <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
+            </div>
+          )}
           <div className={styles.actions}>
+            {completedSummaryEditing ? (
+              <>
+                <button type="button" className="primaryButton" onClick={handleSaveCompletedSummary}>Save</button>
+                <button type="button" className="secondaryButton" onClick={() => setCompletedSummaryEditing(false)}>Cancel</button>
+              </>
+            ) : (
+              <button type="button" className="secondaryButton" onClick={() => setCompletedSummaryEditing(true)}>Edit</button>
+            )}
             <button type="button" className="secondaryButton" onClick={closeCompletedSummaryModal}>Close</button>
           </div>
         </Modal>

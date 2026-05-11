@@ -114,7 +114,7 @@ const emptyBatteryPack = {
   asset_tag: ''
 };
 
-export default function TicketsTab() {
+export default function TicketsTab({ initialOpenTicket = null }) {
   const [ticketForm, setTicketForm] = useState(emptyTicket);
   const [tickets, setTickets] = useState([]);
   const [statusFilter, setStatusFilter] = useState('open');
@@ -136,6 +136,11 @@ export default function TicketsTab() {
   useEffect(() => {
     loadTickets();
   }, [currentPage, statusFilter]);
+
+  useEffect(() => {
+    if (!initialOpenTicket) return;
+    openResponseModal(initialOpenTicket);
+  }, [initialOpenTicket]);
 
   useEffect(() => {
     if (!message) return;

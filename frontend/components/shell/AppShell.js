@@ -5,11 +5,7 @@ import SidebarNavigation from './SidebarNavigation';
 import styles from './AppShell.module.css';
 
 const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', meta: 'Home' },
-  { id: 'networking', label: 'Networking', meta: 'Active' },
-  { id: 'inventory', label: 'Inventory' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'settings', label: 'Settings' }
+  { id: 'networking', label: 'Networking', meta: 'Active' }
 ];
 
 export default function AppShell({ children, activeWorkspace, onWorkspaceChange }) {

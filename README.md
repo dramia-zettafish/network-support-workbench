@@ -10,7 +10,7 @@ A Next.js + PostgreSQL ticket and UPS installation tracking application for netw
 - **Proxy:** Caddy reverse proxy for routing and local HTTPS (dev)
 - **Container:** Docker Compose for local development
 
-**For detailed workflow documentation, see [WORKFLOW.md](WORKFLOW.md).**
+**For detailed workflow documentation, see [docs/WORKFLOW.md](docs/WORKFLOW.md).**
 
 ## Project Structure
 
@@ -22,7 +22,8 @@ repo/
   frontend/app/api/               Next.js API routes
   caddy/Caddyfile                 Reverse proxy configuration
   docker-compose.yml              Local development stack
-  WORKFLOW.md                     Business logic and state machines
+  docs/WORKFLOW.md                Business logic and state machines
+  docs/historical_ups_import_plan.md  One-time historical UPS import notes
 ```
 
 PostgreSQL initializes from `db/network_vcode_schema.sql` on a fresh Docker volume.
@@ -109,11 +110,11 @@ The Next.js app currently includes:
 - Dark theme by default
 - Light mode through `data-theme="light"` on `<html>`
 - Persistent app shell
-- Left sidebar with `Dashboard`, `Networking`, `Inventory`, `Reports`, and `Settings`
+- Left sidebar scoped to the active `Networking` workspace
 - Networking workspace top tabs with `Operations`, `Tickets`, and `UPS`
 - Functional Operations landing page backed by existing ticket and UPS APIs
 - Functional Tickets tab
-- UPS foundation view with Pending and In Progress tables
+- UPS workflow with Pending, In Progress, and Completed views
 
 Shared components currently include:
 
@@ -160,7 +161,7 @@ The UPS tab currently supports:
 - Outlook-friendly schedule table copied to clipboard
 - Highlighted install date badges in the In Progress table
 - Warehouse email preview from selected In Progress rows
-- `Select Scheduled` batch selection for visible scheduled UPS records before warehouse generation
+- `Select All` batch selection for visible scheduled UPS records before warehouse generation
 - Editable UPS PO and BP PO fields in the warehouse preview
 - Blank warehouse email fields normalized to `N/A`
 - Outlook-friendly warehouse table copied to clipboard
@@ -169,21 +170,20 @@ The UPS tab currently supports:
 - Scheduled In Progress rows remain non-clickable until the warehouse table has been copied
 - Row-level `Remove` action sends an In Progress record back to Pending
 - Phase 3 device save through `/api/ups-installations/{id}/phase3-devices`
-- Explicit Move to Completed action for selected In Progress rows
+- Fulfillment modal moves servicing records to Completed after saving device details
 - Completed UPS table from `/api/ups-installations/?status=fulfilled`
-- Completed UPS search scoped to the Completed table
+- Completed UPS search scoped to the Completed table, returning compact server-side results
 - Completed UPS asset-reference columns for asset tag, UPS SN, MAC, SNMP IP, and status
-- Completed UPS row-click summary modal for full install details
+- Completed UPS row-click summary modal with edit/save for asset-reference fields
 
-UPS records now stay in In Progress while fulfillment details are saved, then move to Completed only when selected and explicitly closed out.
+Historical UPS rows are standalone fulfilled UPS records with no ticket rows.
 
 The Operations dashboard currently supports:
 
-- Open Tickets section with an open count, on-hold detail, create-ticket action, and open/on-hold preview table
-- UPS This Week section with pending count, current-week install count, and a Monday-Friday install table
+- Open/on-hold ticket preview with clickable rows that open the matching ticket response modal
+- UPS This Week table with rows that navigate to the UPS workflow
 - Current-day UPS install dates highlighted in the weekly table
-- Recent Closed Work table from closed tickets and fulfilled UPS installs
-- Quick Actions for ticket creation and UPS workflow navigation inside their related sections
+- Summary cards for open tickets, on-hold tickets, pending UPS, and current-week UPS installs
 - Dashboard buttons on Tickets and UPS workflow pages
 - Dashboard refresh without changing backend routes
 

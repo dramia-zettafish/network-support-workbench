@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
-import { deriveUpsEquipment, getUpsTicketLabel, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
+import { deriveUpsEquipment, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
 import PageHeader from '../ui/PageHeader';
@@ -14,7 +14,11 @@ import styles from './OperationsPage.module.css';
 const openTicketColumns = [
   { key: 'ticket', label: 'Ticket #' },
   { key: 'school', label: 'School' },
-  { key: 'deviceType', label: 'Device Type' },
+  {
+    key: 'deviceType',
+    label: 'Device Type',
+    render: (row) => <span className={`${styles.devicePill} ${styles[row.deviceTypeKey] || ''}`}>{row.deviceType}</span>
+  },
   { key: 'status', label: 'Status', render: (row) => <StatusBadge tone={row.tone}>{row.status}</StatusBadge> },
   { key: 'age', label: 'Age' }
 ];
@@ -31,13 +35,6 @@ const weeklyInstallColumns = [
   { key: 'status', label: 'Status', render: (row) => <StatusBadge tone={row.tone}>{row.status}</StatusBadge> }
 ];
 
-const recentClosedColumns = [
-  { key: 'ticket', label: 'Ticket #' },
-  { key: 'school', label: 'School' },
-  { key: 'type', label: 'Type' },
-  { key: 'status', label: 'Status', render: (row) => <StatusBadge tone="neutral">{row.status}</StatusBadge> }
-];
-
 const deviceTypeLabels = {
   access_point: 'Access Point',
   switch: 'Switch',
@@ -46,11 +43,9 @@ const deviceTypeLabels = {
 
 export default function OperationsPage({ onNavigate }) {
   const [tickets, setTickets] = useState([]);
-  const [closedTickets, setClosedTickets] = useState([]);
   const [upsPending, setUpsPending] = useState([]);
   const [upsScheduled, setUpsScheduled] = useState([]);
   const [upsServicing, setUpsServicing] = useState([]);
-  const [upsCompleted, setUpsCompleted] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -64,8 +59,10 @@ export default function OperationsPage({ onNavigate }) {
       .slice(0, 10)
       .map((ticket) => ({
         id: `ticket-${ticket.ticket_number}`,
+        ticketRecord: ticket,
         ticket: ticket.external_ticket_number || ticket.ticket_number,
         school: ticket.school_name,
+        deviceTypeKey: ticket.device_type,
         deviceType: deviceTypeLabels[ticket.device_type] || ticket.device_type,
         status: ticket.status === 'on_hold' ? 'On Hold' : 'Open',
         tone: ticket.status === 'on_hold' ? 'warning' : 'info',
@@ -92,28 +89,9 @@ export default function OperationsPage({ onNavigate }) {
       }));
   }, [upsScheduled, upsServicing]);
 
-  const recentClosedRows = useMemo(() => {
-    const ticketRows = closedTickets.slice(0, 5).map((ticket) => ({
-      id: `closed-ticket-${ticket.ticket_number}`,
-      ticket: ticket.external_ticket_number || ticket.ticket_number,
-      school: ticket.school_name,
-      type: deviceTypeLabels[ticket.device_type] || 'Ticket',
-      status: 'Closed'
-    }));
-
-    const upsRows = upsCompleted.slice(0, 5).map((install) => ({
-      id: `closed-ups-${install.ups_installation_id}`,
-      ticket: getUpsTicketLabel(install),
-      school: install.school_name,
-      type: 'UPS Install',
-      status: 'Fulfilled'
-    }));
-
-    return [...upsRows, ...ticketRows].slice(0, 8);
-  }, [closedTickets, upsCompleted]);
-
   const openTicketCount = tickets.filter((ticket) => ticket.status === 'open').length;
   const onHoldTicketCount = tickets.filter((ticket) => ticket.status === 'on_hold').length;
+  const activeUpsCount = upsScheduled.length + upsServicing.length;
 
   async function loadOperationsData() {
     setLoading(true);
@@ -123,27 +101,21 @@ export default function OperationsPage({ onNavigate }) {
       const [
         openTickets,
         onHoldTickets,
-        loadedClosedTickets,
         pendingUps,
         scheduledUps,
-        servicingUps,
-        completedUps
+        servicingUps
       ] = await Promise.all([
         apiRequest('/tickets/?status=open&limit=1000&offset=0'),
         apiRequest('/tickets/?status=on_hold&limit=1000&offset=0'),
-        apiRequest('/tickets/?status=closed&limit=20&offset=0'),
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0'),
-        apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0'),
-        apiRequest('/ups-installations/?status=fulfilled&limit=20&offset=0')
+        apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0')
       ]);
 
       setTickets([...(openTickets || []), ...(onHoldTickets || [])]);
-      setClosedTickets(loadedClosedTickets || []);
       setUpsPending(pendingUps || []);
       setUpsScheduled(scheduledUps || []);
       setUpsServicing(servicingUps || []);
-      setUpsCompleted(completedUps || []);
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load operations dashboard data.' });
     } finally {
@@ -163,67 +135,58 @@ export default function OperationsPage({ onNavigate }) {
       {message && <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>}
 
       <div className={styles.dashboardStack}>
-        <section className={styles.sectionGrid}>
-          <div className={styles.statRail}>
-            <StatCard
-              label="Open Tickets"
-              value={String(openTicketCount)}
-              detail={`${onHoldTicketCount} on hold`}
-              status={{ label: 'Ticket Queue', tone: openTicketCount > 0 ? 'info' : 'neutral' }}
-            />
-            <button type="button" className="primaryButton" onClick={() => onNavigate('tickets')}>
-              Create Ticket
-            </button>
-          </div>
+        <div className={styles.overviewGrid}>
+          <StatCard
+            label="Open Tickets"
+            value={String(openTicketCount)}
+            detail="Open network tickets"
+            status={{ label: 'Ticket Queue', tone: openTicketCount > 0 ? 'info' : 'neutral' }}
+          />
+          <StatCard
+            label="On Hold"
+            value={String(onHoldTicketCount)}
+            detail="Waiting on follow-up"
+            status={{ label: 'Ticket Queue', tone: onHoldTicketCount > 0 ? 'warning' : 'neutral' }}
+          />
+          <StatCard
+            label="UPS Pending"
+            value={String(upsPending.length)}
+            detail="Waiting for NOC schedule"
+            status={{ label: 'Queue', tone: upsPending.length > 0 ? 'warning' : 'neutral' }}
+          />
+          <StatCard
+            label="UPS This Week"
+            value={String(weeklyInstallRows.length)}
+            detail={`${activeUpsCount} active UPS records`}
+            status={{ label: 'Installs', tone: weeklyInstallRows.length > 0 ? 'success' : 'neutral' }}
+          />
+        </div>
 
-          <SectionCard title="Open / On Hold Tickets" description="Current ticket queue preview.">
-            {loading ? (
-              <p className="mutedText">Loading tickets...</p>
-            ) : openTicketRows.length > 0 ? (
-              <DataTable columns={openTicketColumns} rows={openTicketRows} getRowKey={(row) => row.id} />
-            ) : (
-              <EmptyState title="No open tickets" description="Open and on-hold tickets will appear here." />
-            )}
-          </SectionCard>
-        </section>
-
-        <section className={styles.sectionGrid}>
-          <div className={styles.statRail}>
-            <StatCard
-              label="UPS Pending"
-              value={String(upsPending.length)}
-              detail="Waiting for NOC schedule"
-              status={{ label: 'Queue', tone: upsPending.length > 0 ? 'warning' : 'neutral' }}
-            />
-            <StatCard
-              label="This Week"
-              value={String(weeklyInstallRows.length)}
-              detail="Current work week installs"
-              status={{ label: 'UPS Installs', tone: weeklyInstallRows.length > 0 ? 'success' : 'neutral' }}
-            />
-            <button type="button" className="secondaryButton" onClick={() => onNavigate('ups')}>Go to UPS</button>
-          </div>
-
-          <SectionCard title="UPS This Week" description="Current Monday-Friday install view. Past dates automatically fall off.">
-            {loading ? (
-              <p className="mutedText">Loading this week's installs...</p>
-            ) : weeklyInstallRows.length > 0 ? (
-              <DataTable columns={weeklyInstallColumns} rows={weeklyInstallRows} getRowKey={(row) => row.id} />
-            ) : (
-              <EmptyState title="No UPS installs this week" description="Scheduled UPS installs for the current work week will appear here." />
-            )}
-          </SectionCard>
-        </section>
-
-        <SectionCard title="Recently Closed" description="Recently closed tickets and fulfilled UPS installs.">
+        <SectionCard title="Open / On Hold Tickets" description="Current ticket queue preview.">
           {loading ? (
-            <p className="mutedText">Loading recent closed work...</p>
-          ) : recentClosedRows.length > 0 ? (
-            <DataTable columns={recentClosedColumns} rows={recentClosedRows} getRowKey={(row) => row.id} />
+            <p className="mutedText">Loading tickets...</p>
+          ) : openTicketRows.length > 0 ? (
+            <DataTable
+              columns={openTicketColumns}
+              rows={openTicketRows}
+              getRowKey={(row) => row.id}
+              onRowClick={(row) => onNavigate('tickets', { openTicket: row.ticketRecord })}
+            />
           ) : (
-            <EmptyState title="No closed work found" description="Closed tickets and fulfilled UPS installs will appear here." />
+            <EmptyState title="No open tickets" description="Open and on-hold tickets will appear here." />
           )}
         </SectionCard>
+
+        <SectionCard title="UPS This Week" description="Current Monday-Friday install view. Past dates automatically fall off.">
+          {loading ? (
+            <p className="mutedText">Loading this week's installs...</p>
+          ) : weeklyInstallRows.length > 0 ? (
+            <DataTable columns={weeklyInstallColumns} rows={weeklyInstallRows} getRowKey={(row) => row.id} onRowClick={() => onNavigate('ups')} />
+          ) : (
+            <EmptyState title="No UPS installs this week" description="Scheduled UPS installs for the current work week will appear here." />
+          )}
+        </SectionCard>
+
       </div>
     </div>
   );

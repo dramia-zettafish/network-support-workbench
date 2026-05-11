@@ -1,7 +1,7 @@
 import PageHeader from '../ui/PageHeader';
 import TicketsTab from '../TicketsTab';
 
-export default function TicketsPage({ onNavigate }) {
+export default function TicketsPage({ onNavigate, navigationContext }) {
   return (
     <>
       <PageHeader
@@ -10,7 +10,7 @@ export default function TicketsPage({ onNavigate }) {
         description="Create and manage network support tickets. This preserves the migrated ticket workflow and API integration."
         actions={<button type="button" className="secondaryButton" onClick={() => onNavigate('operations')}>Dashboard</button>}
       />
-      <TicketsTab />
+      <TicketsTab initialOpenTicket={navigationContext?.openTicket || null} />
     </>
   );
 }
