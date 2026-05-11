@@ -251,4 +251,4 @@ For the next phase, keep the standalone runtime behavior intact:
 - Keep colors in CSS variables.
 - Prefer small route-compatible changes over broad rewrites.
 - Maintain the current Next.js/PostgreSQL architecture as the stable runtime.
-- Archive older implementations only after confirming all workflows and business logic are migrated.
+- Keep older implementation references under `archive/`; do not reintroduce legacy runtime entrypoints at the repo root.
