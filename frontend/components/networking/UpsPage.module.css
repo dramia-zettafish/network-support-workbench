@@ -140,6 +140,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+  justify-content: flex-end;
 }
 
 .scheduleRows {
@@ -295,6 +296,10 @@
 
   .summaryDetails {
     grid-template-columns: 1fr;
+  }
+
+  .actions {
+    justify-content: flex-start;
   }
 }
 

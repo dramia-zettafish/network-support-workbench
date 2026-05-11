@@ -173,8 +173,8 @@ export default function TicketsTab() {
       label: 'Actions',
       render: (ticket) => (
         <div className={styles.rowActions}>
-          <button type="button" onClick={(event) => openEditModal(event, ticket)}>Edit</button>
-          <button type="button" onClick={(event) => handleDeleteTicket(event, ticket.ticket_number)}>Delete</button>
+          <button type="button" className="secondaryButton compactButton" onClick={(event) => openEditModal(event, ticket)}>Edit</button>
+          <button type="button" className="dangerButton compactButton" onClick={(event) => handleDeleteTicket(event, ticket.ticket_number)}>Delete</button>
         </div>
       )
     }
@@ -719,7 +719,7 @@ export default function TicketsTab() {
         <section className={styles.responsePhase}>
           <div className={styles.phaseHeader}>
             <h3>UPS Information</h3>
-            {!responseClosed && <button type="button" onClick={addUpsDevice}>Add UPS</button>}
+            {!responseClosed && <button type="button" className="secondaryButton compactButton" onClick={addUpsDevice}>Add UPS</button>}
           </div>
           <div className={styles.deviceStack}>
             {upsDevices.map((device, index) => (
@@ -727,7 +727,7 @@ export default function TicketsTab() {
                 <div className={styles.phaseHeader}>
                   <h4>UPS {index + 1}</h4>
                   {index > 0 && !responseClosed && (
-                    <button type="button" onClick={() => removeUpsDevice(index)}>Remove</button>
+                    <button type="button" className="dangerButton compactButton" onClick={() => removeUpsDevice(index)}>Remove</button>
                   )}
                 </div>
                 <div className={styles.responseGrid}>
@@ -758,7 +758,7 @@ export default function TicketsTab() {
         <section className={styles.responsePhase}>
           <div className={styles.phaseHeader}>
             <h3>Battery Packs</h3>
-            {!responseClosed && <button type="button" onClick={addBatteryPack}>Add Battery Pack</button>}
+            {!responseClosed && <button type="button" className="secondaryButton compactButton" onClick={addBatteryPack}>Add Battery Pack</button>}
           </div>
           {batteryPacks.length > 0 ? (
             <div className={styles.deviceStack}>
@@ -766,7 +766,7 @@ export default function TicketsTab() {
                 <div className={styles.responseFieldset} key={`battery-${index}`}>
                   <div className={styles.phaseHeader}>
                     <h4>{batteryPacks.length === 1 ? 'Battery Pack' : `Battery Pack ${index + 1}`}</h4>
-                    {!responseClosed && <button type="button" onClick={() => removeBatteryPack(index)}>Remove</button>}
+                    {!responseClosed && <button type="button" className="dangerButton compactButton" onClick={() => removeBatteryPack(index)}>Remove</button>}
                   </div>
                   <div className={styles.responseGrid}>
                     <label>
@@ -790,7 +790,7 @@ export default function TicketsTab() {
           <button type="button" className="primaryButton" onClick={handleCopyUpsResponse} disabled={responseClosed}>
             Copy UPS Response
           </button>
-          <button type="button" onClick={closeResponseModal}>Close</button>
+          <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
         </div>
       </>
     );
@@ -921,6 +921,7 @@ export default function TicketsTab() {
           <div className={styles.pagination}>
             <button
               type="button"
+              className="secondaryButton"
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={currentPage === 1}
             >
@@ -929,6 +930,7 @@ export default function TicketsTab() {
             <span>Page {currentPage}</span>
             <button
               type="button"
+              className="secondaryButton"
               onClick={() => setCurrentPage((page) => page + 1)}
               disabled={tickets.length < limit}
             >
@@ -995,7 +997,7 @@ export default function TicketsTab() {
                     <button type="button" className="primaryButton" onClick={handleCopyRmaEmail}>
                       Copy RMA Email
                     </button>
-                    <button type="button" onClick={closeResponseModal}>Close</button>
+                    <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                   </div>
                 </>
               ) : (
@@ -1034,7 +1036,7 @@ export default function TicketsTab() {
                     <button type="button" className="primaryButton" onClick={handleCopyNoReplacementResponse} disabled={responseClosed}>
                       Copy Response
                     </button>
-                    <button type="button" onClick={closeResponseModal}>Close</button>
+                    <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                   </div>
                 </>
               ) : responseForm.resolution_type === 'permanent' ? (
@@ -1048,7 +1050,7 @@ export default function TicketsTab() {
                     <button type="button" className="primaryButton" onClick={handleCopyPermanentResponse} disabled={responseClosed}>
                       Copy Response
                     </button>
-                    <button type="button" onClick={closeResponseModal}>Close</button>
+                    <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                   </div>
                 </>
               ) : (
@@ -1080,7 +1082,7 @@ export default function TicketsTab() {
                         <button type="button" className="primaryButton" onClick={handleCopyRmaResponse} disabled={responseClosed}>
                           Copy RMA Response
                         </button>
-                        <button type="button" onClick={closeResponseModal}>Close</button>
+                        <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                       </div>
                     </section>
                   )}
@@ -1118,7 +1120,7 @@ export default function TicketsTab() {
             </label>
             <div className={styles.actions}>
               <button type="submit" className="primaryButton">Update Ticket</button>
-              <button type="button" onClick={closeEditModal}>Cancel</button>
+              <button type="button" className="secondaryButton" onClick={closeEditModal}>Cancel</button>
             </div>
           </form>
         </Modal>

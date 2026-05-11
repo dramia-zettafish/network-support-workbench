@@ -159,7 +159,7 @@ export default function UpsPage({ onNavigate }) {
       label: 'Actions',
       render: (install) => (
         <div className={styles.rowActions}>
-          <button type="button" onClick={(event) => handleRollbackFromRow(event, install)}>
+          <button type="button" className="dangerButton compactButton" onClick={(event) => handleRollbackFromRow(event, install)}>
             Remove
           </button>
         </div>
@@ -562,8 +562,8 @@ export default function UpsPage({ onNavigate }) {
         description="Track UPS installs from intake through scheduling, warehouse coordination, fulfillment, and completion."
         actions={
           <>
-            <button type="button" onClick={() => onNavigate('operations')}>Dashboard</button>
-            <button type="button" onClick={loadUpsInstallations}>Refresh</button>
+            <button type="button" className="secondaryButton" onClick={() => onNavigate('operations')}>Dashboard</button>
+            <button type="button" className="secondaryButton" onClick={loadUpsInstallations}>Refresh</button>
           </>
         }
       />
@@ -624,7 +624,7 @@ export default function UpsPage({ onNavigate }) {
             <div className={styles.sectionActions}>
               <SelectionHint count={selectedInProgressIds.size} label="in progress selected" />
               {visibleScheduledInProgressIds.length > 0 && (
-                <button type="button" onClick={handleToggleVisibleScheduledSelection}>
+                <button type="button" className="secondaryButton" onClick={handleToggleVisibleScheduledSelection}>
                   {allVisibleScheduledSelected ? 'Clear Scheduled' : 'Select Scheduled'}
                 </button>
               )}
@@ -635,7 +635,7 @@ export default function UpsPage({ onNavigate }) {
               )}
               {selectedInProgressIds.size > 0 && (
                 <>
-                  <button type="button" onClick={handleMoveToCompleted}>
+                  <button type="button" className="successButton" onClick={handleMoveToCompleted}>
                     Move to Completed
                   </button>
                 </>
@@ -713,7 +713,7 @@ export default function UpsPage({ onNavigate }) {
             <button type="button" className="primaryButton" onClick={handleMoveToInProgress}>
               Move to In Progress
             </button>
-            <button type="button" onClick={closeScheduleModal}>Cancel</button>
+            <button type="button" className="secondaryButton" onClick={closeScheduleModal}>Cancel</button>
           </div>
         </Modal>
       )}
@@ -778,7 +778,7 @@ export default function UpsPage({ onNavigate }) {
             <button type="button" className="primaryButton" onClick={handleCopyWarehouseTable}>
               Copy Warehouse Table
             </button>
-            <button type="button" onClick={closeWarehouseModal}>Cancel</button>
+            <button type="button" className="secondaryButton" onClick={closeWarehouseModal}>Cancel</button>
           </div>
         </Modal>
       )}
@@ -822,7 +822,7 @@ export default function UpsPage({ onNavigate }) {
             </div>
             <div className={styles.actions}>
               <button type="submit" className="primaryButton">Save Fulfillment</button>
-              <button type="button" onClick={closeFulfillmentModal}>Cancel</button>
+              <button type="button" className="secondaryButton" onClick={closeFulfillmentModal}>Cancel</button>
             </div>
           </form>
         </Modal>
@@ -851,7 +851,7 @@ export default function UpsPage({ onNavigate }) {
             <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
           </div>
           <div className={styles.actions}>
-            <button type="button" onClick={closeCompletedSummaryModal}>Close</button>
+            <button type="button" className="secondaryButton" onClick={closeCompletedSummaryModal}>Close</button>
           </div>
         </Modal>
       )}

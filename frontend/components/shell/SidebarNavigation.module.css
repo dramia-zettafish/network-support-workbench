@@ -62,6 +62,7 @@
 .nav button:hover {
   background: var(--bg-alt);
   border-color: var(--border-color);
+  transform: none;
 }
 
 .nav button[aria-current='page'] {

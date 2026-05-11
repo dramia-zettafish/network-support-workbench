@@ -21,3 +21,7 @@
   border-color: var(--tab-active-border);
   color: var(--tab-active-text);
 }
+
+.tab:hover {
+  transform: none;
+}

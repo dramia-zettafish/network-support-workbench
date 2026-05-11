@@ -8,7 +8,7 @@ export default function TicketsPage({ onNavigate }) {
         eyebrow="Networking"
         title="Tickets"
         description="Create and manage network support tickets. This preserves the migrated ticket workflow and API integration."
-        actions={<button type="button" onClick={() => onNavigate('operations')}>Dashboard</button>}
+        actions={<button type="button" className="secondaryButton" onClick={() => onNavigate('operations')}>Dashboard</button>}
       />
       <TicketsTab />
     </>

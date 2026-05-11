@@ -37,6 +37,10 @@
   margin-bottom: 0.85rem;
 }
 
+.actions {
+  justify-content: flex-end;
+}
+
 .rowActions {
   flex-wrap: nowrap;
 }
@@ -239,6 +243,10 @@
   }
 
   .pagination {
+    justify-content: flex-start;
+  }
+
+  .actions {
     justify-content: flex-start;
   }
 

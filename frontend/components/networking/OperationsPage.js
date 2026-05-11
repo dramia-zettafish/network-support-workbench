@@ -157,7 +157,7 @@ export default function OperationsPage({ onNavigate }) {
         eyebrow="Networking"
         title="Operations"
         description="Weekly view for open tickets, current UPS installs, and recently closed work."
-        actions={<button type="button" onClick={loadOperationsData}>Refresh</button>}
+        actions={<button type="button" className="secondaryButton" onClick={loadOperationsData}>Refresh</button>}
       />
 
       {message && <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>}
@@ -201,7 +201,7 @@ export default function OperationsPage({ onNavigate }) {
               detail="Current work week installs"
               status={{ label: 'UPS Installs', tone: weeklyInstallRows.length > 0 ? 'success' : 'neutral' }}
             />
-            <button type="button" onClick={() => onNavigate('ups')}>Go to UPS</button>
+            <button type="button" className="secondaryButton" onClick={() => onNavigate('ups')}>Go to UPS</button>
           </div>
 
           <SectionCard title="UPS This Week" description="Current Monday-Friday install view. Past dates automatically fall off.">

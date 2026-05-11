@@ -12,7 +12,7 @@ export default function DataTable({ columns, rows, getRowKey, emptyTitle, emptyD
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
+              <th key={column.key} className={column.key === 'actions' ? styles.actionCell : undefined}>{column.label}</th>
             ))}
           </tr>
         </thead>
@@ -26,7 +26,9 @@ export default function DataTable({ columns, rows, getRowKey, emptyTitle, emptyD
                 className={rowIsClickable ? styles.clickableRow : undefined}
               >
                 {columns.map((column) => (
-                  <td key={column.key}>{column.render ? column.render(row) : row[column.key]}</td>
+                  <td key={column.key} className={column.key === 'actions' ? styles.actionCell : undefined}>
+                    {column.render ? column.render(row) : row[column.key]}
+                  </td>
                 ))}
               </tr>
             );

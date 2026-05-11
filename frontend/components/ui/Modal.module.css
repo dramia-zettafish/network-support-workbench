@@ -39,6 +39,10 @@
   width: 2rem;
 }
 
+.closeButton:hover {
+  transform: none;
+}
+
 .footer {
   border-top: 1px solid var(--border-color);
   display: flex;
