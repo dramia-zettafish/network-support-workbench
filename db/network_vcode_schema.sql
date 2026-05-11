@@ -162,10 +162,10 @@ EXECUTE FUNCTION set_updated_at();
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ups_installations (
   ups_installation_id SERIAL PRIMARY KEY,
-  ticket_number INTEGER NOT NULL REFERENCES tickets(ticket_number) ON DELETE CASCADE,
+  ticket_number INTEGER REFERENCES tickets(ticket_number) ON DELETE SET NULL,
   external_ticket_number VARCHAR(8),
   school_name VARCHAR(255) NOT NULL,
-  tea_code INTEGER NOT NULL,
+  tea_code INTEGER,
   created_date TEXT NOT NULL,
   status upsinstallstatus NOT NULL DEFAULT 'intake',
 

@@ -51,6 +51,13 @@ export default function UpsPage({ onNavigate }) {
   }, []);
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      loadCompletedInstallations(completedSearch);
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [completedSearch]);
+
+  useEffect(() => {
     if (!message) return;
     const timeout = window.setTimeout(() => setMessage(null), 3500);
     return () => window.clearTimeout(timeout);
@@ -66,10 +73,7 @@ export default function UpsPage({ onNavigate }) {
     [inProgressInstalls]
   );
 
-  const visibleCompletedInstalls = useMemo(
-    () => filterInstallations(completedInstalls, completedSearch),
-    [completedInstalls, completedSearch]
-  );
+  const visibleCompletedInstalls = useMemo(() => completedInstalls, [completedInstalls]);
 
   const visibleScheduledInProgressIds = useMemo(
     () => visibleInProgressInstalls
@@ -188,7 +192,7 @@ export default function UpsPage({ onNavigate }) {
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0'),
-        apiRequest('/ups-installations/?status=fulfilled&limit=1000&offset=0')
+        apiRequest('/ups-installations/?status=fulfilled&limit=15&offset=0')
       ]);
       setPendingInstalls(pending || []);
       setInProgressInstalls([...(scheduled || []), ...(servicing || [])]);
@@ -202,10 +206,14 @@ export default function UpsPage({ onNavigate }) {
     }
   }
 
-  function filterInstallations(installs, currentSearch) {
-    const normalizedSearch = currentSearch.trim().toLowerCase();
-    if (!normalizedSearch) return installs;
-    return installs.filter((install) => Object.values(install).join(' ').toLowerCase().includes(normalizedSearch));
+  async function loadCompletedInstallations(currentSearch) {
+    try {
+      const searchParam = currentSearch.trim() ? `&search=${encodeURIComponent(currentSearch.trim())}` : '';
+      const completed = await apiRequest(`/ups-installations/?status=fulfilled&limit=15&offset=0${searchParam}`);
+      setCompletedInstalls(completed || []);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to search completed UPS installations.' });
+    }
   }
 
   function openScheduleModal() {

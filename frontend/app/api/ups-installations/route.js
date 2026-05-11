@@ -7,7 +7,8 @@ export async function GET(request) {
   try {
     const installs = await listUpsInstallations({
       status: searchParams.get('status') || null,
-      limit: clampQueryInt(searchParams.get('limit'), 100, 1, 1000),
+      search: searchParams.get('search') || null,
+      limit: clampQueryInt(searchParams.get('limit'), 100, 1, 5000),
       offset: clampQueryInt(searchParams.get('offset'), 0, 0, Number.MAX_SAFE_INTEGER)
     });
 

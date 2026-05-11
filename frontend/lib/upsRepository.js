@@ -87,13 +87,50 @@ const fieldMaxLengths = {
   install_contact_number: 20
 };
 
-export async function listUpsInstallations({ status, limit, offset }) {
+export async function listUpsInstallations({ status, search, limit, offset }) {
   const where = [];
   const params = [];
 
   if (status) {
     where.push(`status = $${params.length + 1}`);
     params.push(requiredEnum(status, 'status', upsStatuses));
+  }
+
+  if (search) {
+    params.push(`%${optionalString(search, 'search', 100)}%`);
+    where.push(`
+      CONCAT_WS(' ',
+        ticket_number::text,
+        external_ticket_number,
+        school_name,
+        tea_code::text,
+        created_date,
+        status::text,
+        serial_number,
+        defective_battery_pack_serial,
+        idf,
+        asset_tag,
+        new_serial_number,
+        new_webcard_serial,
+        mac_address,
+        hostname,
+        new_battery_pack_asset_tag,
+        new_battery_pack_serial,
+        model,
+        room_number,
+        installed_date,
+        installed_by,
+        notes,
+        snmp_ip,
+        battery_pack_1_asset_tag,
+        ups_po,
+        bp_po,
+        proposed_install_date,
+        approved_install_date,
+        install_contact,
+        install_contact_number
+      ) ILIKE $${params.length}
+    `);
   }
 
   params.push(limit, offset);

@@ -10,3 +10,4 @@ venv/
 frontend/node_modules/
 frontend/.next/
 v2-ui/
+ups_clean_import_ready_promoted.csv
