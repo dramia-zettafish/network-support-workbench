@@ -80,6 +80,14 @@ docker compose down -v
 docker compose up --build
 ```
 
+## UPS Workflow
+
+UPS tickets create intake records that move through Pending, Scheduled, Servicing, and Completed. Multiple UPS records can belong to the same ticket when a campus needs more than one unit replaced.
+
+Pending and servicing records keep defective UPS asset/MAC data separate from replacement UPS asset/MAC data. Fulfillment captures replacement UPS serial, replacement asset tag, replacement MAC, SNMP/IP details, and replacement battery pack details. Completed records are shown as a lookup table with the core fields: ticket, school, UPS serial, MAC, and IP.
+
+Historical UPS imports are standalone completed records and do not create ticket rows. The importer maps historical replacement asset tags and MAC addresses into the replacement fields, strips spreadsheet `.0` suffixes from asset tags, and skips rows that collide with active pending or in-progress UPS work.
+
 ## Useful Commands
 
 Run a production build inside the frontend container:
@@ -110,6 +118,7 @@ The Next.js API layer exposes routes under `/api/*`, including:
 - `/api/tickets`
 - `/api/tickets/{ticket_number}`
 - `/api/tickets/{ticket_number}/response`
+- `/api/ticket-responses/{ticket_number}`
 - `/api/ups-installations`
 - `/api/ups-installations/{ups_installation_id}`
 - `/api/ups-installations/{ups_installation_id}/phase2`

@@ -2,9 +2,10 @@ import { handleRouteError, json, readJson } from '../../../../../lib/apiResponse
 import { updateUpsInstallation } from '../../../../../lib/upsRepository';
 
 const allowedFields = [
-  'asset_tag',
+  'new_asset_tag',
   'new_serial_number',
   'new_webcard_serial',
+  'new_mac_address',
   'snmp_ip',
   'new_battery_pack_serial',
   'new_battery_pack_asset_tag',

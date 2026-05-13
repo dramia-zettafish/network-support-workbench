@@ -13,19 +13,22 @@ import StatusBadge from '../ui/StatusBadge';
 import styles from './UpsPage.module.css';
 
 const emptyFulfillmentForm = {
-  asset_tag: '',
+  new_asset_tag: '',
   new_serial_number: '',
   new_webcard_serial: '',
+  new_mac_address: '',
   snmp_ip: '',
   new_battery_pack_serial: '',
   new_battery_pack_asset_tag: ''
 };
 
 const completedEditableFields = [
-  ['asset_tag', 'Asset Tag #'],
+  ['asset_tag', 'Defective Asset Tag #'],
+  ['mac_address', 'Defective MAC'],
+  ['new_asset_tag', 'Replacement Asset Tag #'],
   ['new_serial_number', 'UPS SN'],
   ['new_webcard_serial', 'SNMPWEBCARD SN'],
-  ['mac_address', 'MAC'],
+  ['new_mac_address', 'Replacement MAC'],
   ['snmp_ip', 'SNMP IP'],
   ['new_battery_pack_serial', 'BP SN'],
   ['new_battery_pack_asset_tag', 'BP Asset Tag #'],
@@ -184,19 +187,9 @@ export default function UpsPage({ onNavigate }) {
   const completedColumns = [
     { key: 'ticket', label: 'Ticket #', render: getUpsTicketLabel },
     { key: 'school_name', label: 'School' },
-    { key: 'asset_tag', label: 'Asset Tag #', render: (install) => install.asset_tag || '-' },
     { key: 'new_serial_number', label: 'UPS SN', render: (install) => install.new_serial_number || '-' },
-    { key: 'mac_address', label: 'MAC', render: (install) => install.mac_address || '-' },
-    { key: 'snmp_ip', label: 'SNMP IP', render: (install) => install.snmp_ip || '-' },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (install) => (
-        <StatusBadge tone={upsStatusToneMap[install.status] || 'neutral'}>
-          {upsStatusLabelMap[install.status] || install.status}
-        </StatusBadge>
-      )
-    }
+    { key: 'new_mac_address', label: 'MAC', render: (install) => install.new_mac_address || '-' },
+    { key: 'snmp_ip', label: 'IP', render: (install) => install.snmp_ip || '-' }
   ];
 
   async function loadUpsInstallations() {
@@ -415,9 +408,10 @@ export default function UpsPage({ onNavigate }) {
   function openFulfillmentModal(install) {
     setFulfillmentInstall(install);
     setFulfillmentForm({
-      asset_tag: install.asset_tag || '',
+      new_asset_tag: install.new_asset_tag || '',
       new_serial_number: install.new_serial_number || '',
       new_webcard_serial: install.new_webcard_serial || '',
+      new_mac_address: install.new_mac_address || '',
       snmp_ip: install.snmp_ip || '',
       new_battery_pack_serial: install.new_battery_pack_serial || '',
       new_battery_pack_asset_tag: install.new_battery_pack_asset_tag || ''
@@ -834,8 +828,8 @@ export default function UpsPage({ onNavigate }) {
           <form className={styles.serviceForm} onSubmit={handleSaveFulfillment}>
             <div className={styles.serviceGrid}>
               <label>
-                Asset Tag #
-                <input value={fulfillmentForm.asset_tag} onChange={(event) => updateFulfillmentForm('asset_tag', event.target.value)} maxLength={100} />
+                Replacement Asset Tag #
+                <input value={fulfillmentForm.new_asset_tag} onChange={(event) => updateFulfillmentForm('new_asset_tag', event.target.value)} maxLength={100} />
               </label>
               <label>
                 UPS SN
@@ -844,6 +838,10 @@ export default function UpsPage({ onNavigate }) {
               <label>
                 SNMPWEBCARD SN
                 <input value={fulfillmentForm.new_webcard_serial} onChange={(event) => updateFulfillmentForm('new_webcard_serial', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Replacement MAC
+                <input value={fulfillmentForm.new_mac_address} onChange={(event) => updateFulfillmentForm('new_mac_address', event.target.value)} maxLength={32} />
               </label>
               <label>
                 SNMP IP
@@ -876,7 +874,7 @@ export default function UpsPage({ onNavigate }) {
                   <input
                     value={completedSummaryForm[field] || ''}
                     onChange={(event) => updateCompletedSummaryForm(field, event.target.value)}
-                    maxLength={field === 'mac_address' ? 32 : 100}
+                    maxLength={field.includes('mac_address') ? 32 : 100}
                   />
                 </label>
               ))}
@@ -891,10 +889,12 @@ export default function UpsPage({ onNavigate }) {
               <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
               <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number || '-'} />
               <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial || '-'} />
-              <ReadOnlyField label="Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
+              <ReadOnlyField label="Defective Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
+              <ReadOnlyField label="Defective MAC" value={completedSummaryInstall.mac_address || '-'} />
+              <ReadOnlyField label="Replacement Asset Tag #" value={completedSummaryInstall.new_asset_tag || '-'} />
               <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number || '-'} />
               <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial || '-'} />
-              <ReadOnlyField label="MAC" value={completedSummaryInstall.mac_address || '-'} />
+              <ReadOnlyField label="Replacement MAC" value={completedSummaryInstall.new_mac_address || '-'} />
               <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip || '-'} />
               <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial || '-'} />
               <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag || '-'} />

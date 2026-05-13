@@ -43,7 +43,9 @@ const insertSql = `
     asset_tag,
     new_serial_number,
     new_webcard_serial,
+    new_asset_tag,
     mac_address,
+    new_mac_address,
     hostname,
     new_battery_pack_asset_tag,
     new_battery_pack_serial,
@@ -65,9 +67,11 @@ const insertSql = `
     $5,
     $6,
     $7,
+    NULL,
     $8,
     $9,
     $10,
+    NULL,
     $11,
     $12,
     $13,
@@ -280,12 +284,14 @@ function normalizeRow(row, warnings) {
     serial_number: cleanText(row['Defective UPS']),
     defective_battery_pack_serial: cleanText(row['Defective BP']),
     idf: cleanText(row.IDF),
-    asset_tag: cleanText(row['Asset Tag#']),
+    asset_tag: null,
     new_serial_number: cleanText(row['Replacement UPS SN#']),
     new_webcard_serial: cleanText(row['SNMPWEBCARD SERIAL']),
-    mac_address: cleanMacAddress(row['SNMP MAC']),
+    new_asset_tag: cleanAssetTag(row['Asset Tag#']),
+    mac_address: null,
+    new_mac_address: cleanMacAddress(row['SNMP MAC']),
     hostname: cleanText(row['SNMP NAME']),
-    new_battery_pack_asset_tag: cleanText(row['BP Asset Tag#']),
+    new_battery_pack_asset_tag: cleanAssetTag(row['BP Asset Tag#']),
     new_battery_pack_serial: cleanText(row['New BP SN']),
     room_number: cleanText(row['RM#']),
     installed_date: installDate,
@@ -310,6 +316,12 @@ function cleanText(value) {
   if (!trimmed) return null;
   if (/^(n\/a|na|none|null)$/i.test(trimmed)) return null;
   return trimmed;
+}
+
+function cleanAssetTag(value) {
+  const cleaned = cleanText(value);
+  if (!cleaned) return null;
+  return cleaned.replace(/\.0$/, '');
 }
 
 function cleanExternalTicketNumber(value, row, warnings) {
@@ -479,6 +491,7 @@ function printSummary({ mode, csvPath, importLimit, totalRows, analysis, existin
       proposed_install_date: row.proposed_install_date,
       status: 'fulfilled',
       asset_tag: row.asset_tag,
+      new_asset_tag: row.new_asset_tag,
       new_serial_number: row.new_serial_number
     }));
   });
@@ -502,10 +515,10 @@ async function commitRows(pool, rows) {
           row.serial_number,
           row.defective_battery_pack_serial,
           row.idf,
-          row.asset_tag,
           row.new_serial_number,
           row.new_webcard_serial,
-          row.mac_address,
+          row.new_asset_tag,
+          row.new_mac_address,
           row.hostname,
           row.new_battery_pack_asset_tag,
           row.new_battery_pack_serial,

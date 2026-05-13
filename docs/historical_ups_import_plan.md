@@ -121,15 +121,15 @@ Do not add auth, RBAC, Prisma, Drizzle, or ORM tooling for this task.
 | `RM#` | `room_number` | Nullable |
 | `IDF` | `idf` | Nullable |
 | `Install Scheduled` | `created_date`, `proposed_install_date`, `installed_date` | Use same normalized date string for all three |
-| `Asset Tag#` | `asset_tag` | Replacement UPS asset tag |
+| `Asset Tag#` | `new_asset_tag` | Replacement UPS asset tag; strip trailing `.0` from spreadsheet numeric values |
 | `Replacement UPS SN#` | `new_serial_number` | Nullable |
 | `PO#` | `ups_po` | Nullable |
 | `SNMPWEBCARD SERIAL` | `new_webcard_serial` | Nullable |
-| `SNMP MAC` | `mac_address` | Normalize if safe; otherwise preserve trimmed value |
+| `SNMP MAC` | `new_mac_address` | Replacement UPS MAC; normalize if safe, otherwise preserve trimmed value |
 | `IP Address` | `snmp_ip` | Nullable |
 | `SNMP NAME` | `hostname` | Nullable |
 | `New BP SN` | `new_battery_pack_serial` | Nullable |
-| `BP Asset Tag#` | `new_battery_pack_asset_tag` | Nullable |
+| `BP Asset Tag#` | `new_battery_pack_asset_tag` | Nullable; strip trailing `.0` from spreadsheet numeric values |
 | `BP PO#` | `bp_po` | Nullable |
 | `_original_excel_row` | `notes` | Include traceability note |
 
