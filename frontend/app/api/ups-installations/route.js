@@ -1,5 +1,5 @@
-import { handleRouteError, json } from '../../../lib/apiResponse';
-import { listUpsInstallations } from '../../../lib/upsRepository';
+import { handleRouteError, json, readJson } from '../../../lib/apiResponse';
+import { createUpsInstallation, listUpsInstallations } from '../../../lib/upsRepository';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -15,6 +15,16 @@ export async function GET(request) {
     return json(installs);
   } catch (error) {
     return handleRouteError(error, 'Error retrieving UPS installations');
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await readJson(request);
+    const install = await createUpsInstallation(body);
+    return json(install, { status: 201 });
+  } catch (error) {
+    return handleRouteError(error, 'Error creating UPS installation');
   }
 }
 

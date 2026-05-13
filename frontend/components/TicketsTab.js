@@ -295,7 +295,7 @@ export default function TicketsTab({ initialOpenTicket = null }) {
     setResponseLoading(true);
 
     try {
-      const response = await apiRequest(`/tickets/${ticket.ticket_number}/response`);
+      const response = await apiRequest(`/ticket-responses/${ticket.ticket_number}`);
       setResponseRecord(response);
       setResponseForm(responseToForm(response));
       if (ticket.device_type === 'ups') {
@@ -358,7 +358,7 @@ export default function TicketsTab({ initialOpenTicket = null }) {
   async function saveResponse(statusOverride, formOverride) {
     if (!responseTicket) return null;
     const payload = normalizeResponsePayload(statusOverride, formOverride);
-    const endpoint = `/tickets/${responseTicket.ticket_number}/response`;
+    const endpoint = `/ticket-responses/${responseTicket.ticket_number}`;
     const savedResponse = responseRecord
       ? await apiRequest(endpoint, { method: 'PATCH', body: JSON.stringify(payload) })
       : await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(payload) });
@@ -490,7 +490,7 @@ export default function TicketsTab({ initialOpenTicket = null }) {
         replacement_room: firstUps.room
       };
       await saveResponse('closed', upsResponseForm);
-      await seedUpsPendingInstall(firstUps, batteryPacks[0]);
+      await seedUpsPendingInstalls(upsDevices, batteryPacks);
       await copyTextToClipboard(buildUpsResponseText(upsResponseForm.response_note, upsDevices, batteryPacks));
       await closeTicketStatus();
       closeResponseModal();
@@ -501,26 +501,49 @@ export default function TicketsTab({ initialOpenTicket = null }) {
     }
   }
 
-  async function seedUpsPendingInstall(firstUps, firstBatteryPack) {
+  async function seedUpsPendingInstalls(devices, packs) {
     const installs = await apiRequest('/ups-installations/?limit=1000&offset=0');
-    const install = (installs || []).find((item) => item.ticket_number === responseTicket.ticket_number);
-    if (!install) return;
+    const ticketInstalls = (installs || [])
+      .filter((item) => item.ticket_number === responseTicket.ticket_number)
+      .sort((left, right) => left.ups_installation_id - right.ups_installation_id);
+    const normalizedDevices = devices.length > 0 ? devices : [{ ...emptyUpsDevice }];
 
-    await apiRequest(`/ups-installations/${install.ups_installation_id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
+    await Promise.all(normalizedDevices.map((device, index) => {
+      const firstBatteryPack = index === 0 ? packs[0] : null;
+      const payload = {
         status: 'intake',
-        model: firstUps.model || null,
-        serial_number: firstUps.sn || null,
-        snmp_ip: firstUps.snmp_ip || null,
-        hostname: firstUps.hostname || null,
-        asset_tag: firstUps.asset_tag || null,
-        mac_address: firstUps.mac_address || null,
-        room_number: firstUps.room || null,
+        model: device.model || null,
+        serial_number: device.sn || null,
+        snmp_ip: device.snmp_ip || null,
+        hostname: device.hostname || null,
+        asset_tag: device.asset_tag || null,
+        mac_address: device.mac_address || null,
+        room_number: device.room || null,
         defective_battery_pack_serial: firstBatteryPack?.sn || null,
         battery_pack_1_asset_tag: firstBatteryPack?.asset_tag || null
-      })
-    });
+      };
+      const existingInstall = ticketInstalls[index];
+
+      if (existingInstall) {
+        return apiRequest(`/ups-installations/${existingInstall.ups_installation_id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+      }
+
+      return apiRequest('/ups-installations', {
+        method: 'POST',
+        body: JSON.stringify({
+          ticket_number: responseTicket.ticket_number,
+          external_ticket_number: responseTicket.external_ticket_number,
+          school_name: responseTicket.school_name,
+          tea_code: responseTicket.tea_code,
+          created_date: responseTicket.date,
+          idf: responseTicket.mdf_idf || null,
+          ...payload
+        })
+      });
+    }));
   }
 
   function getGreeting() {

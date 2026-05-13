@@ -281,19 +281,21 @@ export default function UpsPage({ onNavigate }) {
     if (scheduleRows.length === 0) return;
 
     try {
+      const sortedRows = sortScheduleRowsByDate(scheduleRows);
       const scheduleResponse = await apiRequest('/ups/schedule/custom', {
         method: 'POST',
         body: JSON.stringify({
-          rows: scheduleRows.map((row) => ({
+          rows: sortedRows.map((row) => ({
             ups_installation_id: row.ups_installation_id,
             proposed_install_date: row.proposed_install_date
           }))
         })
       });
 
+      const copiedRows = sortScheduleRowsByDate(scheduleResponse.rows || []);
       await copyHtmlToClipboard(
-        buildScheduleHtmlTable(scheduleResponse.rows || []),
-        buildScheduleTextTable(scheduleResponse.rows || [])
+        buildScheduleHtmlTable(copiedRows),
+        buildScheduleTextTable(copiedRows)
       );
       setMessage({ type: 'success', text: 'NOC schedule copied and selected UPS records moved to In Progress.' });
       closeScheduleModal();
@@ -342,6 +344,18 @@ export default function UpsPage({ onNavigate }) {
     ]);
 
     return [headers, ...bodyRows].map((row) => row.map((cell) => cell || '').join('\t')).join('\n');
+  }
+
+  function sortScheduleRowsByDate(rows) {
+    return [...rows].sort((left, right) => {
+      const dateComparison = String(left.proposed_install_date || '').localeCompare(String(right.proposed_install_date || ''));
+      if (dateComparison !== 0) return dateComparison;
+
+      const schoolComparison = String(left.school_name || '').localeCompare(String(right.school_name || ''));
+      if (schoolComparison !== 0) return schoolComparison;
+
+      return String(left.ticket_number || '').localeCompare(String(right.ticket_number || ''));
+    });
   }
 
   function openWarehouseModal() {

@@ -193,7 +193,6 @@ CREATE TABLE IF NOT EXISTS ups_installations (
   install_contact VARCHAR(255),
   install_contact_number VARCHAR(20),
 
-  CONSTRAINT uq_ups_installations_ticket_number UNIQUE (ticket_number),
   CONSTRAINT ck_ups_installations_tea_code_3_digits CHECK (tea_code >= 0 AND tea_code <= 999),
   CONSTRAINT ck_ups_installations_external_ticket_number_len CHECK (
     external_ticket_number IS NULL OR char_length(external_ticket_number) <= 8

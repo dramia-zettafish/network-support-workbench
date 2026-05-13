@@ -154,6 +154,23 @@ export async function updateUpsInstallation(upsInstallationId, payload, allowedF
   return updateUpsById(upsInstallationId, normalized);
 }
 
+export async function createUpsInstallation(payload, allowedFields = updateFields) {
+  const normalized = validateUpsCreate(payload, allowedFields);
+  const fields = Object.keys(normalized);
+  const values = Object.values(normalized);
+
+  const result = await query(
+    `
+      INSERT INTO ups_installations (${fields.join(', ')})
+      VALUES (${fields.map((_, index) => `$${index + 1}`).join(', ')})
+      RETURNING ${upsColumns}
+    `,
+    values
+  );
+
+  return result.rows[0];
+}
+
 export async function rollbackUpsInstallation(upsInstallationId) {
   const result = await query(
     `
@@ -187,7 +204,7 @@ export async function scheduleUpsInstallations(payload) {
 
   return {
     proposed_install_date: proposedInstallDate,
-    rows
+    rows: sortScheduleRowsByDate(rows)
   };
 }
 
@@ -204,7 +221,7 @@ export async function scheduleUpsInstallationsWithDates(payload) {
 
   return {
     proposed_install_date: '',
-    rows: await updateScheduleRows(normalizedRows)
+    rows: sortScheduleRowsByDate(await updateScheduleRows(normalizedRows))
   };
 }
 
@@ -299,6 +316,34 @@ function validateUpsUpdate(payload, allowedFields) {
   return updates;
 }
 
+function validateUpsCreate(payload, allowedFields) {
+  const createFields = [
+    'ticket_number',
+    'external_ticket_number',
+    'school_name',
+    'tea_code',
+    'created_date',
+    ...allowedFields
+  ];
+  rejectUnknownFields(payload, createFields);
+
+  const updatePayload = {};
+  allowedFields.forEach((field) => {
+    if (payload[field] !== undefined) updatePayload[field] = payload[field];
+  });
+  const updates = validateUpsUpdate(updatePayload, allowedFields);
+
+  return {
+    ticket_number: requiredInteger(payload.ticket_number, 'ticket_number'),
+    external_ticket_number: optionalString(payload.external_ticket_number, 'external_ticket_number', 8),
+    school_name: requiredString(payload.school_name, 'school_name', 255),
+    tea_code: requiredInteger(payload.tea_code, 'tea_code', { min: 0, max: 999 }),
+    created_date: requiredString(payload.created_date, 'created_date'),
+    status: updates.status || 'intake',
+    ...updates
+  };
+}
+
 export function buildScheduleRow(ups) {
   return {
     ups_installation_id: ups.ups_installation_id,
@@ -321,6 +366,18 @@ export function deriveUpsEquipment(ups) {
 
   if (batteryPackCount === 0) return 'UPS';
   return `UPS, ${batteryPackCount} BP`;
+}
+
+function sortScheduleRowsByDate(rows) {
+  return [...rows].sort((left, right) => {
+    const dateComparison = String(left.proposed_install_date || '').localeCompare(String(right.proposed_install_date || ''));
+    if (dateComparison !== 0) return dateComparison;
+
+    const schoolComparison = String(left.school_name || '').localeCompare(String(right.school_name || ''));
+    if (schoolComparison !== 0) return schoolComparison;
+
+    return String(left.ticket_number || '').localeCompare(String(right.ticket_number || ''));
+  });
 }
 
 function resolveNextWeekday(day) {

@@ -176,7 +176,6 @@ export async function createTicket(payload) {
             status
           )
           VALUES ($1, $2, $3, $4, $5, $6, 'intake')
-          ON CONFLICT (ticket_number) DO NOTHING
         `,
         [
           createdTicket.ticket_number,
