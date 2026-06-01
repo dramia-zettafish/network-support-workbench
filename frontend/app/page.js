@@ -1,10 +1,5 @@
-import AppShell from '../components/shell/AppShell';
-import NetworkingWorkspace from '../components/networking/NetworkingWorkspace';
+import OperationsPage from '../components/networking/OperationsPage';
 
 export default function Home() {
-  return (
-    <AppShell activeWorkspace="networking">
-      <NetworkingWorkspace />
-    </AppShell>
-  );
+  return <OperationsPage />;
 }

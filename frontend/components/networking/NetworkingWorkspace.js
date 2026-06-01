@@ -5,12 +5,14 @@ import TabNavigation from '../ui/TabNavigation';
 import OperationsPage from './OperationsPage';
 import TicketsPage from './TicketsPage';
 import UpsPage from './UpsPage';
+import NocResponsesPage from './NocResponsesPage';
 import styles from './NetworkingWorkspace.module.css';
 
 const tabs = [
-  { id: 'operations', label: 'Operations' },
+  { id: 'operations', label: 'Dashboard' },
   { id: 'tickets', label: 'Tickets' },
-  { id: 'ups', label: 'UPS' }
+  { id: 'ups', label: 'UPS' },
+  { id: 'noc-responses', label: 'NOC Responses' }
 ];
 
 export default function NetworkingWorkspace() {
@@ -34,6 +36,7 @@ export default function NetworkingWorkspace() {
         {activeTab === 'operations' && <OperationsPage onNavigate={handleNavigate} />}
         {activeTab === 'tickets' && <TicketsPage onNavigate={handleNavigate} navigationContext={navigationContext} />}
         {activeTab === 'ups' && <UpsPage onNavigate={handleNavigate} />}
+        {activeTab === 'noc-responses' && <NocResponsesPage />}
       </div>
     </section>
   );

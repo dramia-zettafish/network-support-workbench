@@ -1,7 +1,9 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
+import { moduleHref } from '../../lib/networkRoutes';
 import { deriveUpsEquipment, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
@@ -42,6 +44,7 @@ const deviceTypeLabels = {
 };
 
 export default function OperationsPage({ onNavigate }) {
+  const router = useRouter();
   const [tickets, setTickets] = useState([]);
   const [upsPending, setUpsPending] = useState([]);
   const [upsScheduled, setUpsScheduled] = useState([]);
@@ -123,6 +126,20 @@ export default function OperationsPage({ onNavigate }) {
     }
   }
 
+  function navigate(moduleId, context = null) {
+    if (onNavigate) {
+      onNavigate(moduleId, context);
+      return;
+    }
+
+    const href = moduleHref(moduleId);
+    if (moduleId === 'tickets' && context?.openTicket?.ticket_number) {
+      router.push(`${href}?ticket=${context.openTicket.ticket_number}`);
+      return;
+    }
+    router.push(href);
+  }
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -170,7 +187,7 @@ export default function OperationsPage({ onNavigate }) {
               columns={openTicketColumns}
               rows={openTicketRows}
               getRowKey={(row) => row.id}
-              onRowClick={(row) => onNavigate('tickets', { openTicket: row.ticketRecord })}
+              onRowClick={(row) => navigate('tickets', { openTicket: row.ticketRecord })}
             />
           ) : (
             <EmptyState title="No open tickets" description="Open and on-hold tickets will appear here." />
@@ -181,7 +198,7 @@ export default function OperationsPage({ onNavigate }) {
           {loading ? (
             <p className="mutedText">Loading this week's installs...</p>
           ) : weeklyInstallRows.length > 0 ? (
-            <DataTable columns={weeklyInstallColumns} rows={weeklyInstallRows} getRowKey={(row) => row.id} onRowClick={() => onNavigate('ups')} />
+            <DataTable columns={weeklyInstallColumns} rows={weeklyInstallRows} getRowKey={(row) => row.id} onRowClick={() => navigate('ups')} />
           ) : (
             <EmptyState title="No UPS installs this week" description="Scheduled UPS installs for the current work week will appear here." />
           )}

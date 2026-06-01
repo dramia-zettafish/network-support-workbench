@@ -114,7 +114,7 @@ const emptyBatteryPack = {
   asset_tag: ''
 };
 
-export default function TicketsTab({ initialOpenTicket = null }) {
+export default function TicketsTab({ initialOpenTicket = null, initialOpenTicketNumber = null, showCreate = true }) {
   const [ticketForm, setTicketForm] = useState(emptyTicket);
   const [tickets, setTickets] = useState([]);
   const [statusFilter, setStatusFilter] = useState('open');
@@ -141,6 +141,14 @@ export default function TicketsTab({ initialOpenTicket = null }) {
     if (!initialOpenTicket) return;
     openResponseModal(initialOpenTicket);
   }, [initialOpenTicket]);
+
+  useEffect(() => {
+    if (!initialOpenTicketNumber || tickets.length === 0) return;
+    const matchingTicket = tickets.find((ticket) => String(ticket.ticket_number) === String(initialOpenTicketNumber));
+    if (matchingTicket) {
+      openResponseModal(matchingTicket);
+    }
+  }, [initialOpenTicketNumber, tickets]);
 
   useEffect(() => {
     if (!message) return;
@@ -827,85 +835,87 @@ export default function TicketsTab({ initialOpenTicket = null }) {
   return (
     <>
       <div className={styles.layout}>
-        <SectionCard title="Create New Ticket">
-          <form className={styles.form} onSubmit={handleCreateTicket}>
-            <div className={styles.formGrid}>
+        {showCreate && (
+          <SectionCard title="Create New Ticket">
+            <form className={styles.form} onSubmit={handleCreateTicket}>
+              <div className={styles.formGrid}>
+                <label>
+                  Ticket #
+                  <input
+                    type="text"
+                    value={ticketForm.external_ticket_number}
+                    onChange={(event) => updateTicketForm('external_ticket_number', event.target.value)}
+                    required
+                    maxLength={8}
+                  />
+                </label>
+                <label>
+                  Device Type
+                  <select
+                    value={ticketForm.device_type}
+                    onChange={(event) => updateTicketForm('device_type', event.target.value)}
+                    required
+                  >
+                    <option value="switch">Switch</option>
+                    <option value="access_point">Access Point</option>
+                    <option value="ups">UPS</option>
+                  </select>
+                </label>
+                <label>
+                  School Name
+                  <input
+                    type="text"
+                    value={ticketForm.school_name}
+                    onChange={(event) => updateTicketForm('school_name', event.target.value)}
+                    required
+                    maxLength={255}
+                  />
+                </label>
+                <label>
+                  TEA Code
+                  <input
+                    type="number"
+                    value={ticketForm.tea_code}
+                    onChange={(event) => updateTicketForm('tea_code', event.target.value)}
+                    required
+                    min="0"
+                    max="999"
+                  />
+                </label>
+                <label>
+                  MDF/IDF
+                  <input
+                    type="text"
+                    value={ticketForm.mdf_idf}
+                    onChange={(event) => updateTicketForm('mdf_idf', event.target.value.toUpperCase())}
+                    maxLength={100}
+                  />
+                </label>
+                <label>
+                  Date
+                  <input
+                    type="date"
+                    value={ticketForm.date}
+                    onChange={(event) => updateTicketForm('date', event.target.value)}
+                    required
+                  />
+                </label>
+              </div>
               <label>
-                Ticket #
-                <input
-                  type="text"
-                  value={ticketForm.external_ticket_number}
-                  onChange={(event) => updateTicketForm('external_ticket_number', event.target.value)}
-                  required
-                  maxLength={8}
+                Note
+                <textarea
+                  value={ticketForm.note}
+                  onChange={(event) => updateTicketForm('note', event.target.value)}
+                  maxLength={1000}
+                  rows={3}
                 />
               </label>
-              <label>
-                Device Type
-                <select
-                  value={ticketForm.device_type}
-                  onChange={(event) => updateTicketForm('device_type', event.target.value)}
-                  required
-                >
-                  <option value="switch">Switch</option>
-                  <option value="access_point">Access Point</option>
-                  <option value="ups">UPS</option>
-                </select>
-              </label>
-              <label>
-                School Name
-                <input
-                  type="text"
-                  value={ticketForm.school_name}
-                  onChange={(event) => updateTicketForm('school_name', event.target.value)}
-                  required
-                  maxLength={255}
-                />
-              </label>
-              <label>
-                TEA Code
-                <input
-                  type="number"
-                  value={ticketForm.tea_code}
-                  onChange={(event) => updateTicketForm('tea_code', event.target.value)}
-                  required
-                  min="0"
-                  max="999"
-                />
-              </label>
-              <label>
-                MDF/IDF
-                <input
-                  type="text"
-                  value={ticketForm.mdf_idf}
-                  onChange={(event) => updateTicketForm('mdf_idf', event.target.value.toUpperCase())}
-                  maxLength={100}
-                />
-              </label>
-              <label>
-                Date
-                <input
-                  type="date"
-                  value={ticketForm.date}
-                  onChange={(event) => updateTicketForm('date', event.target.value)}
-                  required
-                />
-              </label>
-            </div>
-            <label>
-              Note
-              <textarea
-                value={ticketForm.note}
-                onChange={(event) => updateTicketForm('note', event.target.value)}
-                maxLength={1000}
-                rows={3}
-              />
-            </label>
-            <div className={styles.actions}>
-              <button type="submit" className="primaryButton">Create Ticket</button>
-            </div>
-          </form>
-        </SectionCard>
+              <div className={styles.actions}>
+                <button type="submit" className="primaryButton">Create Ticket</button>
+              </div>
+            </form>
+          </SectionCard>
+        )}
 
         <SectionCard
           title="Tickets"

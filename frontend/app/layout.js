@@ -1,14 +1,29 @@
 import './globals.css';
+import AppShell from '../components/shell/AppShell';
 
 export const metadata = {
-  title: 'End User Operations Network Team',
+  title: 'Network Vcode',
   description: 'Ticket and UPS workflow tracker'
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var stored = localStorage.getItem('network-vcode-theme');
+                if (stored === 'light') document.documentElement.dataset.theme = 'light';
+              } catch (_) {}
+            `
+          }}
+        />
+      </head>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

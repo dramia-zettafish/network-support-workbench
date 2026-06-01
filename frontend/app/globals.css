@@ -1,4 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
+  --color-bg: #0f1216;
+  --color-surface: #11171d;
+  --color-surface-raised: #131922;
+  --color-surface-hover: #17202a;
+  --color-border: #222222;
+  --color-border-strong: #2a2f36;
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #98a2ad;
+  --color-accent: #60a5fa;
+  --color-accent-soft: #142131;
+  --color-success: #9ae6b4;
+  --color-warning: #f6ad55;
+  --color-danger: #f97316;
+  --color-input-bg: #141a21;
+  --color-input-border: #222222;
+
   --bg-primary: #0f1216;
   --bg-secondary: #11171d;
   --bg-alt: #131922;
@@ -95,6 +116,23 @@
 }
 
 :root[data-theme='light'] {
+  --color-bg: #f7f8fb;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f1f5f9;
+  --color-surface-hover: #eef2f7;
+  --color-border: #d7dce3;
+  --color-border-strong: #c6ccd5;
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #374151;
+  --color-text-muted: #6b7280;
+  --color-accent: #2563eb;
+  --color-accent-soft: #eff6ff;
+  --color-success: #166534;
+  --color-warning: #92400e;
+  --color-danger: #b45309;
+  --color-input-bg: #ffffff;
+  --color-input-border: #d7dce3;
+
   --bg-primary: #f7f8fb;
   --bg-secondary: #ffffff;
   --bg-alt: #f1f5f9;

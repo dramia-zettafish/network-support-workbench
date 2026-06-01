@@ -1,8 +1,10 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
 import { copyHtmlToClipboard } from '../../lib/clipboard';
+import { moduleHref } from '../../lib/networkRoutes';
 import { deriveUpsEquipment, getUpsTicketLabel, toggleSelection, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
@@ -45,6 +47,7 @@ function getNextMondayIsoDate() {
 }
 
 export default function UpsPage({ onNavigate }) {
+  const router = useRouter();
   const [pendingInstalls, setPendingInstalls] = useState([]);
   const [inProgressInstalls, setInProgressInstalls] = useState([]);
   const [completedInstalls, setCompletedInstalls] = useState([]);
@@ -593,6 +596,14 @@ export default function UpsPage({ onNavigate }) {
       .replace(/'/g, '&#39;');
   }
 
+  function handleDashboardClick() {
+    if (onNavigate) {
+      onNavigate('operations');
+      return;
+    }
+    router.push(moduleHref('dashboard'));
+  }
+
   return (
     <>
       <PageHeader
@@ -601,7 +612,7 @@ export default function UpsPage({ onNavigate }) {
         description="Track UPS installs from intake through scheduling, warehouse coordination, fulfillment, and completion."
         actions={
           <>
-            <button type="button" className="secondaryButton" onClick={() => onNavigate('operations')}>Dashboard</button>
+            <button type="button" className="secondaryButton" onClick={handleDashboardClick}>Dashboard</button>
             <button type="button" className="secondaryButton" onClick={loadUpsInstallations}>Refresh</button>
           </>
         }

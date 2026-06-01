@@ -4,6 +4,8 @@ Network Vcode is a Dockerized Next.js and PostgreSQL workspace for managing netw
 
 The app is built around a practical operations dashboard: teams can create and track tickets, generate device-response notes, move UPS records through scheduling and fulfillment, and review completed installation details from a single browser-based interface.
 
+Network Vcode is currently a standalone local app intended for local or trusted team access over Tailscale. It is not production-authenticated yet; the future EUSupport merge is expected to provide Duo NG/session authentication and the shared server deployment boundary.
+
 ## Features
 
 - Operations dashboard with ticket and UPS workflow summaries
@@ -12,6 +14,7 @@ The app is built around a practical operations dashboard: teams can create and t
 - UPS installation intake, scheduling, warehouse handoff, fulfillment, rollback, and completed-record review
 - Next.js API routes backed by PostgreSQL
 - Docker Compose runtime with Caddy as the local entrypoint
+- EUSupport-aligned top navigation shell with a standalone local current-user seam
 
 ## Tech Stack
 
@@ -64,6 +67,8 @@ http://localhost:3000
 ```
 
 For normal testing, use `http://localhost:8080` so requests exercise the same frontend and API routing path as the composed runtime.
+
+For team testing over Tailscale, keep the app behind the local Caddy entrypoint and expose only the trusted Tailscale address. Standalone mode uses a local/mock `Network Team` user from `GET /api/auth/me`; it does not enforce EUSupport Duo NG or session cookies.
 
 ## Database
 
@@ -132,9 +137,11 @@ The Next.js API layer exposes routes under `/api/*`, including:
 ## Development Notes
 
 - Keep API calls routed through `/api/*`.
+- Use `NEXT_PUBLIC_NETWORK_API_BASE` only when testing a future API mount; it defaults to `/api`.
+- Current standalone routes are `/`, `/tickets`, `/ups`, and `/noc-responses`; the future EUSupport target is the same workflow under `/network`.
 - Keep generated folders such as `frontend/node_modules/` and `frontend/.next/` out of version control.
 - Prefer focused changes that preserve the current Next.js/PostgreSQL architecture.
-- Use the workflow notes in `docs/` for implementation context.
+- Use the workflow notes in `docs/` for implementation context, including `docs/EUSUPPORT_ALIGNMENT_NOTES.md`.
 
 ## Status
 
