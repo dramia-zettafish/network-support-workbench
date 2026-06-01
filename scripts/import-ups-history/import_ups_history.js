@@ -17,17 +17,8 @@ function requirePg() {
   }
 }
 
-const { Pool } = requirePg();
-
 const repoRoot = path.resolve(__dirname, '../..');
-const defaultCsvPath = path.join(repoRoot, 'ups_clean_import_ready_promoted.csv');
-const mode = process.argv.includes('--commit') ? 'commit' : 'dry-run';
-const csvPath = getArgValue('--file') || defaultCsvPath;
-const importLimit = getIntArgValue('--limit');
-const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_URL ||
-  'postgresql://user:password@localhost:5432/tickets';
+const defaultCsvPath = path.join(repoRoot, 'ups_clean_import_ready_with_2026_additions_NO_REVIEW_NEEDED.csv');
 
 const insertSql = `
   INSERT INTO ups_installations (
@@ -88,17 +79,81 @@ const insertSql = `
   RETURNING ups_installation_id
 `;
 
-main().catch((error) => {
-  console.error(`Import failed: ${error.message}`);
-  process.exitCode = 1;
-});
+const updateFields = [
+  'external_ticket_number',
+  'school_name',
+  'tea_code',
+  'created_date',
+  'status',
+  'serial_number',
+  'defective_battery_pack_serial',
+  'idf',
+  'asset_tag',
+  'new_serial_number',
+  'new_webcard_serial',
+  'new_asset_tag',
+  'mac_address',
+  'new_mac_address',
+  'hostname',
+  'new_battery_pack_asset_tag',
+  'new_battery_pack_serial',
+  'model',
+  'room_number',
+  'installed_date',
+  'notes',
+  'snmp_ip',
+  'ups_po',
+  'bp_po',
+  'proposed_install_date'
+];
+
+const updateSql = `
+  UPDATE ups_installations
+  SET
+    external_ticket_number = $1,
+    school_name = $2,
+    tea_code = $3,
+    created_date = $4,
+    status = 'fulfilled',
+    serial_number = $5,
+    defective_battery_pack_serial = $6,
+    idf = $7,
+    asset_tag = NULL,
+    new_serial_number = $8,
+    new_webcard_serial = $9,
+    new_asset_tag = $10,
+    mac_address = NULL,
+    new_mac_address = $11,
+    hostname = $12,
+    new_battery_pack_asset_tag = $13,
+    new_battery_pack_serial = $14,
+    model = NULL,
+    room_number = $15,
+    installed_date = $16,
+    notes = $17,
+    snmp_ip = $18,
+    ups_po = $19,
+    bp_po = $20,
+    proposed_install_date = $21
+  WHERE ups_installation_id = $22
+  RETURNING ups_installation_id
+`;
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`Import failed: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
 
 async function main() {
-  if (!process.argv.includes('--dry-run') && !process.argv.includes('--commit')) {
-    printUsage();
-    process.exitCode = 1;
-    return;
-  }
+  const mode = resolveMode(process.argv);
+  const csvPath = getArgValue('--file') || defaultCsvPath;
+  const importLimit = getIntArgValue('--limit');
+  const connectionString =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    'postgresql://user:password@localhost:5432/tickets';
 
   if (!fs.existsSync(csvPath)) {
     throw new Error(`CSV file not found: ${csvPath}`);
@@ -106,12 +161,14 @@ async function main() {
 
   const rows = parseCsv(fs.readFileSync(csvPath, 'utf8'));
   const analysis = analyzeRows(rows);
+  const { Pool } = requirePg();
   const pool = new Pool({ connectionString });
 
   try {
-    const existingDuplicates = await findExistingDuplicates(pool, analysis.validRows, mode);
-    const importableRows = analysis.validRows.filter((row) => !isExistingDuplicate(row, existingDuplicates));
-    const rowsToImport = importLimit ? importableRows.slice(0, importLimit) : importableRows;
+    const existingRows = await findExistingMatches(pool, analysis.validRows, mode);
+    const importPlan = planImportRows(analysis.validRows, existingRows);
+    const actionableRows = importPlan.actions.filter((action) => action.action === 'insert' || action.action === 'update');
+    const rowsToApply = importLimit ? actionableRows.slice(0, importLimit) : actionableRows;
 
     printSummary({
       mode,
@@ -119,17 +176,20 @@ async function main() {
       importLimit,
       totalRows: rows.length,
       analysis,
-      existingDuplicates,
-      importableRows,
-      rowsToImport
+      importPlan,
+      rowsToApply
     });
 
     if (mode === 'dry-run') return;
 
-    await commitRows(pool, rowsToImport);
+    await commitRows(pool, rowsToApply);
   } finally {
     await pool.end();
   }
+}
+
+function resolveMode(args) {
+  return args.includes('--execute') || args.includes('--commit') ? 'execute' : 'dry-run';
 }
 
 function getArgValue(name) {
@@ -149,7 +209,8 @@ function getIntArgValue(name) {
 }
 
 function printUsage() {
-  console.log('Usage: node scripts/import-ups-history/import_ups_history.js --dry-run [--file path/to.csv] [--limit 5]');
+  console.log('Usage: node scripts/import-ups-history/import_ups_history.js [--dry-run] [--file path/to.csv] [--limit 5]');
+  console.log('       node scripts/import-ups-history/import_ups_history.js --execute [--file path/to.csv] [--limit 5]');
   console.log('       node scripts/import-ups-history/import_ups_history.js --commit [--file path/to.csv] [--limit 5]');
 }
 
@@ -224,8 +285,10 @@ function analyzeRows(rows) {
   const duplicateReplacementUpsSerials = new Set();
   const seenExternalTicketNumbers = new Set();
   const seenReplacementUpsSerials = new Set();
+  const seenImportIdentities = new Set();
   let missingSchool = 0;
   let invalidInstallDate = 0;
+  let duplicateImportIdentity = 0;
 
   rows.forEach((row) => {
     const normalized = normalizeRow(row, warnings);
@@ -245,19 +308,29 @@ function analyzeRows(rows) {
     const externalKey = normalized.external_ticket_number;
     if (externalKey && seenExternalTicketNumbers.has(externalKey)) {
       duplicateExternalTicketNumbers.add(externalKey);
-      skippedRows.push(skip(row, `duplicate external ticket number ${externalKey}`));
-      return;
     }
     if (externalKey) seenExternalTicketNumbers.add(externalKey);
 
     const serialKey = normalized.new_serial_number;
     if (serialKey && seenReplacementUpsSerials.has(serialKey)) {
       duplicateReplacementUpsSerials.add(serialKey);
-      skippedRows.push(skip(row, `duplicate replacement UPS serial ${serialKey}`));
-      return;
     }
     if (serialKey) seenReplacementUpsSerials.add(serialKey);
 
+    const identity = getImportIdentity(normalized);
+    if (!identity) {
+      skippedRows.push(skip(row, 'unable to build stable import identity'));
+      return;
+    }
+
+    if (seenImportIdentities.has(identity.key)) {
+      duplicateImportIdentity += 1;
+      skippedRows.push(skip(row, `duplicate import identity ${identity.label}`));
+      return;
+    }
+    seenImportIdentities.add(identity.key);
+
+    normalized.import_identity = identity;
     validRows.push(normalized);
   });
 
@@ -267,6 +340,7 @@ function analyzeRows(rows) {
     warnings,
     missingSchool,
     invalidInstallDate,
+    duplicateImportIdentity,
     duplicateExternalTicketNumbers: Array.from(duplicateExternalTicketNumbers),
     duplicateReplacementUpsSerials: Array.from(duplicateReplacementUpsSerials)
   };
@@ -295,13 +369,20 @@ function normalizeRow(row, warnings) {
     new_battery_pack_serial: cleanText(row['New BP SN']),
     room_number: cleanText(row['RM#']),
     installed_date: installDate,
-    notes: null,
+    notes: buildImportNote(row),
     snmp_ip: cleanText(row['IP Address']),
     ups_po: cleanText(row['PO#']),
     bp_po: cleanText(row['BP PO#']),
     proposed_install_date: installDate,
     source_row: row.__csv_row_number
   };
+}
+
+function buildImportNote(row) {
+  const originalExcelRow = cleanText(row._original_excel_row);
+  return originalExcelRow
+    ? `Historical UPS import. Original Excel row: ${originalExcelRow}`
+    : 'Historical UPS import.';
 }
 
 function getFirst(row, fields) {
@@ -409,62 +490,159 @@ function warn(row, message) {
   };
 }
 
-async function findExistingDuplicates(pool, rows, currentMode) {
-  const externalTicketNumbers = rows.map((row) => row.external_ticket_number).filter(Boolean);
-  const replacementSerials = rows.map((row) => row.new_serial_number).filter(Boolean);
+function getImportIdentity(row) {
+  return getImportIdentities(row)[0] || null;
+}
 
-  let externalResult = { rows: [] };
-  let serialResult = { rows: [] };
+function getImportIdentities(row) {
+  const identities = [];
 
-  try {
-    [externalResult, serialResult] = await Promise.all([
-      externalTicketNumbers.length
-        ? pool.query(
-            'SELECT external_ticket_number FROM ups_installations WHERE external_ticket_number = ANY($1::text[])',
-            [externalTicketNumbers]
-          )
-        : { rows: [] },
-      replacementSerials.length
-        ? pool.query(
-            'SELECT new_serial_number FROM ups_installations WHERE new_serial_number = ANY($1::text[])',
-            [replacementSerials]
-          )
-        : { rows: [] }
-    ]);
-  } catch (error) {
-    if (currentMode === 'commit') throw error;
-    console.warn(`Warning: DB duplicate check skipped during dry run: ${error.message}`);
+  if (row.external_ticket_number && row.new_serial_number) {
+    identities.push(identity('external+serial', [row.external_ticket_number, row.new_serial_number]));
   }
 
+  if (row.external_ticket_number && row.school_name && row.idf && row.proposed_install_date) {
+    identities.push(identity('external+school+idf+date', [
+      row.external_ticket_number,
+      row.school_name,
+      row.idf,
+      row.proposed_install_date
+    ]));
+  }
+
+  if (row.new_serial_number) {
+    identities.push(identity('serial', [row.new_serial_number]));
+  }
+
+  if (row.school_name && row.idf && row.proposed_install_date && row.snmp_ip) {
+    identities.push(identity('school+idf+date+ip', [row.school_name, row.idf, row.proposed_install_date, row.snmp_ip]));
+  }
+
+  return identities;
+}
+
+function identity(strategy, parts) {
+  const normalizedParts = parts.map((part) => String(part).trim().toLowerCase());
   return {
-    externalTicketNumbers: new Set(externalResult.rows.map((row) => row.external_ticket_number)),
-    replacementSerials: new Set(serialResult.rows.map((row) => row.new_serial_number))
+    strategy,
+    parts,
+    key: `${strategy}:${normalizedParts.join('|')}`,
+    label: `${strategy} (${parts.join(' / ')})`
   };
 }
 
-function isExistingDuplicate(row, duplicates) {
-  return (
-    (row.external_ticket_number && duplicates.externalTicketNumbers.has(row.external_ticket_number)) ||
-    (row.new_serial_number && duplicates.replacementSerials.has(row.new_serial_number))
-  );
+async function findExistingMatches(pool, rows, currentMode) {
+  const externalTicketNumbers = rows.map((row) => row.external_ticket_number).filter(Boolean);
+  const replacementSerials = rows.map((row) => row.new_serial_number).filter(Boolean);
+  const snmpIps = rows.map((row) => row.snmp_ip).filter(Boolean);
+  const schoolNames = rows.map((row) => row.school_name).filter(Boolean);
+
+  let result = { rows: [] };
+
+  try {
+    result = await pool.query(
+      `
+        SELECT
+          ups_installation_id,
+          ticket_number,
+          external_ticket_number,
+          school_name,
+          tea_code,
+          created_date,
+          status,
+          serial_number,
+          defective_battery_pack_serial,
+          idf,
+          asset_tag,
+          new_serial_number,
+          new_webcard_serial,
+          new_asset_tag,
+          mac_address,
+          new_mac_address,
+          hostname,
+          new_battery_pack_asset_tag,
+          new_battery_pack_serial,
+          model,
+          room_number,
+          installed_date,
+          notes,
+          snmp_ip,
+          ups_po,
+          bp_po,
+          proposed_install_date
+        FROM ups_installations
+        WHERE
+          external_ticket_number = ANY($1::text[])
+          OR new_serial_number = ANY($2::text[])
+          OR snmp_ip = ANY($3::text[])
+          OR school_name = ANY($4::text[])
+      `,
+      [externalTicketNumbers, replacementSerials, snmpIps, schoolNames]
+    );
+  } catch (error) {
+    if (currentMode === 'execute') throw error;
+    console.warn(`Warning: DB match check skipped during dry run: ${error.message}`);
+  }
+
+  return result.rows;
 }
 
-function printSummary({ mode, csvPath, importLimit, totalRows, analysis, existingDuplicates, importableRows, rowsToImport }) {
+function planImportRows(rows, existingRows = []) {
+  const existingByIdentity = new Map();
+
+  existingRows.forEach((row) => {
+    getImportIdentities(row).forEach((identity) => {
+      if (existingByIdentity.has(identity.key)) return;
+      existingByIdentity.set(identity.key, row);
+    });
+  });
+
+  const actions = rows.map((row) => {
+    const existing = getImportIdentities(row)
+      .map((identity) => existingByIdentity.get(identity.key))
+      .find(Boolean);
+    return {
+      action: existing ? 'update' : 'insert',
+      row,
+      existing: existing || null
+    };
+  });
+
+  const summary = actions.reduce(
+    (counts, action) => {
+      counts[action.action] += 1;
+      return counts;
+    },
+    { insert: 0, update: 0 }
+  );
+
+  return {
+    actions,
+    summary,
+    existingMatchCount: summary.update
+  };
+}
+
+function printSummary({ mode, csvPath, importLimit, totalRows, analysis, importPlan, rowsToApply }) {
   console.log(`Historical UPS import (${mode})`);
   console.log(`CSV: ${csvPath}`);
   if (importLimit) console.log(`Import limit: ${importLimit}`);
   console.log(`Total rows read: ${totalRows}`);
-  console.log(`Rows ready before DB duplicate check: ${analysis.validRows.length}`);
-  console.log(`Rows ready after DB duplicate check: ${importableRows.length}`);
-  console.log(`Rows selected to import: ${rowsToImport.length}`);
-  console.log(`Rows skipped: ${analysis.skippedRows.length + analysis.validRows.length - importableRows.length}`);
-  if (importLimit) console.log(`Rows not selected due to limit: ${importableRows.length - rowsToImport.length}`);
+  console.log(`Rows valid after CSV validation: ${analysis.validRows.length}`);
+  console.log(`Rows selected to apply: ${rowsToApply.length}`);
+  console.log(`Rows that would insert: ${rowsToApply.filter((action) => action.action === 'insert').length}`);
+  console.log(`Rows that would update: ${rowsToApply.filter((action) => action.action === 'update').length}`);
+  console.log(`Rows skipped: ${analysis.skippedRows.length}`);
+  if (importLimit) {
+    const actionableRows = importPlan.actions.filter((action) => action.action === 'insert' || action.action === 'update');
+    console.log(`Rows not selected due to limit: ${actionableRows.length - rowsToApply.length}`);
+  }
   console.log(`Rows with missing school: ${analysis.missingSchool}`);
   console.log(`Rows with invalid install date: ${analysis.invalidInstallDate}`);
-  console.log(`Duplicate external ticket numbers in CSV: ${analysis.duplicateExternalTicketNumbers.length}`);
-  console.log(`Duplicate replacement UPS serials in CSV: ${analysis.duplicateReplacementUpsSerials.length}`);
-  console.log(`Existing DB duplicate external ticket numbers: ${existingDuplicates.externalTicketNumbers.size}`);
-  console.log(`Existing DB duplicate replacement UPS serials: ${existingDuplicates.replacementSerials.size}`);
+  console.log(`Duplicate import identities in CSV: ${analysis.duplicateImportIdentity}`);
+  console.log(`Repeated external ticket numbers in CSV: ${analysis.duplicateExternalTicketNumbers.length}`);
+  console.log(`Repeated replacement UPS serials in CSV: ${analysis.duplicateReplacementUpsSerials.length}`);
+  console.log(`Existing DB matches: ${importPlan.existingMatchCount}`);
 
   if (analysis.warnings.length) {
     console.log('\nWarnings:');
@@ -483,8 +661,10 @@ function printSummary({ mode, csvPath, importLimit, totalRows, analysis, existin
   }
 
   console.log('\nPreview:');
-  rowsToImport.slice(0, 5).forEach((row) => {
+  rowsToApply.slice(0, 5).forEach(({ action, row, existing }) => {
     console.log(JSON.stringify({
+      action,
+      ups_installation_id: existing?.ups_installation_id || null,
       external_ticket_number: row.external_ticket_number,
       school_name: row.school_name,
       tea_code: row.tea_code,
@@ -497,50 +677,64 @@ function printSummary({ mode, csvPath, importLimit, totalRows, analysis, existin
   });
 }
 
-async function commitRows(pool, rows) {
+function rowParams(row) {
+  return [
+    row.external_ticket_number,
+    row.school_name,
+    row.tea_code,
+    row.created_date,
+    row.serial_number,
+    row.defective_battery_pack_serial,
+    row.idf,
+    row.new_serial_number,
+    row.new_webcard_serial,
+    row.new_asset_tag,
+    row.new_mac_address,
+    row.hostname,
+    row.new_battery_pack_asset_tag,
+    row.new_battery_pack_serial,
+    row.room_number,
+    row.installed_date,
+    row.notes,
+    row.snmp_ip,
+    row.ups_po,
+    row.bp_po,
+    row.proposed_install_date
+  ];
+}
+
+async function commitRows(pool, actions) {
   const client = await pool.connect();
   let inserted = 0;
+  let updated = 0;
+  let errors = 0;
 
   try {
     await client.query('BEGIN');
 
-    for (const row of rows) {
+    for (const action of actions) {
       await client.query('SAVEPOINT ups_history_row');
       try {
-        await client.query(insertSql, [
-          row.external_ticket_number,
-          row.school_name,
-          row.tea_code,
-          row.created_date,
-          row.serial_number,
-          row.defective_battery_pack_serial,
-          row.idf,
-          row.new_serial_number,
-          row.new_webcard_serial,
-          row.new_asset_tag,
-          row.new_mac_address,
-          row.hostname,
-          row.new_battery_pack_asset_tag,
-          row.new_battery_pack_serial,
-          row.room_number,
-          row.installed_date,
-          row.notes,
-          row.snmp_ip,
-          row.ups_po,
-          row.bp_po,
-          row.proposed_install_date
-        ]);
-        inserted += 1;
+        if (action.action === 'update') {
+          await client.query(updateSql, [...rowParams(action.row), action.existing.ups_installation_id]);
+          updated += 1;
+        } else {
+          await client.query(insertSql, rowParams(action.row));
+          inserted += 1;
+        }
         await client.query('RELEASE SAVEPOINT ups_history_row');
       } catch (error) {
+        errors += 1;
         await client.query('ROLLBACK TO SAVEPOINT ups_history_row');
         await client.query('RELEASE SAVEPOINT ups_history_row');
-        console.warn(`Skipping CSV row ${row.source_row}: ${error.message}`);
+        console.warn(`Skipping CSV row ${action.row.source_row}: ${error.message}`);
       }
     }
 
     await client.query('COMMIT');
     console.log(`\nInserted rows: ${inserted}`);
+    console.log(`Updated rows: ${updated}`);
+    console.log(`Errored rows: ${errors}`);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -548,3 +742,15 @@ async function commitRows(pool, rows) {
     client.release();
   }
 }
+
+module.exports = {
+  analyzeRows,
+  cleanDate,
+  getImportIdentity,
+  getImportIdentities,
+  parseCsv,
+  planImportRows,
+  resolveMode,
+  rowParams,
+  updateFields
+};
