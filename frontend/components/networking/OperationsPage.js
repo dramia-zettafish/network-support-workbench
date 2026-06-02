@@ -184,7 +184,7 @@ export default function OperationsPage({ onNavigate }) {
           />
         </div>
 
-        <SectionCard title="Open / On Hold Tickets" description="Current ticket queue preview.">
+        <SectionCard title="Open / On Hold Tickets" description="Current ticket queue preview." spotlight spotlightMode="interactive">
           {loading ? (
             <p className="mutedText">Loading tickets...</p>
           ) : loadFailed ? (
@@ -204,7 +204,7 @@ export default function OperationsPage({ onNavigate }) {
           )}
         </SectionCard>
 
-        <SectionCard title="UPS This Week" description="Current Monday-Friday install view. Past dates automatically fall off.">
+        <SectionCard title="UPS This Week" description="Current Monday-Friday install view. Past dates automatically fall off." spotlight spotlightMode="interactive">
           {loading ? (
             <p className="mutedText">Loading this week's installs...</p>
           ) : loadFailed ? (

@@ -6,6 +6,7 @@ import ReviewCopyPanel from './communications/ReviewCopyPanel';
 import DataTable from './ui/DataTable';
 import Modal from './ui/Modal';
 import SectionCard from './ui/SectionCard';
+import SpotlightPanel from './ui/SpotlightPanel';
 import StatusBadge from './ui/StatusBadge';
 import { useToast } from './ui/ToastProvider';
 import styles from './TicketsTab.module.css';
@@ -833,7 +834,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
 
   function renderDeviceFields(title, fields, disabled = false) {
     return (
-      <div className={styles.responseFieldset}>
+      <SpotlightPanel className={styles.responseFieldset} mode="interactive">
         <h4>{title}</h4>
         <div className={styles.responseGrid}>
           {fields.map(([field, label]) => (
@@ -848,13 +849,13 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
             </label>
           ))}
         </div>
-      </div>
+      </SpotlightPanel>
     );
   }
 
   function renderResponseNote(label, field, rows = 4) {
     return (
-      <label className={styles.fullWidthLabel}>
+      <SpotlightPanel as="label" className={styles.fullWidthLabel} mode="interactive">
         {label}
         <textarea
           value={responseForm[field]}
@@ -863,7 +864,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
           rows={rows}
           disabled={responseClosed}
         />
-      </label>
+      </SpotlightPanel>
     );
   }
 
@@ -876,14 +877,14 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
             <strong>UPS Replacement Response</strong>
           </div>
         </div>
-        <section className={styles.responsePhase}>
+        <SpotlightPanel as="section" className={styles.responsePhase} mode="interactive">
           <div className={styles.phaseHeader}>
             <h3>UPS Information</h3>
             {!responseClosed && <button type="button" className="secondaryButton compactButton" onClick={addUpsDevice}>Add UPS</button>}
           </div>
           <div className={styles.deviceStack}>
             {upsDevices.map((device, index) => (
-              <div className={styles.responseFieldset} key={`ups-${index}`}>
+              <SpotlightPanel className={styles.responseFieldset} mode="interactive" key={`ups-${index}`}>
                 <div className={styles.phaseHeader}>
                   <h4>UPS {index + 1}</h4>
                   {index > 0 && !responseClosed && (
@@ -911,11 +912,11 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                     </label>
                   ))}
                 </div>
-              </div>
+              </SpotlightPanel>
             ))}
           </div>
-        </section>
-        <section className={styles.responsePhase}>
+        </SpotlightPanel>
+        <SpotlightPanel as="section" className={styles.responsePhase} mode="interactive">
           <div className={styles.phaseHeader}>
             <h3>Battery Packs</h3>
             {!responseClosed && <button type="button" className="secondaryButton compactButton" onClick={addBatteryPack}>Add Battery Pack</button>}
@@ -923,7 +924,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
           {batteryPacks.length > 0 ? (
             <div className={styles.deviceStack}>
               {batteryPacks.map((pack, index) => (
-                <div className={styles.responseFieldset} key={`battery-${index}`}>
+                <SpotlightPanel className={styles.responseFieldset} mode="interactive" key={`battery-${index}`}>
                   <div className={styles.phaseHeader}>
                     <h4>{batteryPacks.length === 1 ? 'Battery Pack' : `Battery Pack ${index + 1}`}</h4>
                     {!responseClosed && <button type="button" className="dangerButton compactButton" onClick={() => removeBatteryPack(index)}>Remove</button>}
@@ -938,13 +939,13 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                       <input value={pack.asset_tag} onChange={(event) => updateBatteryPack(index, 'asset_tag', event.target.value)} maxLength={100} disabled={responseClosed} />
                     </label>
                   </div>
-                </div>
+                </SpotlightPanel>
               ))}
             </div>
           ) : (
             <p className="mutedText">Add a battery pack only when one needs to be included in the response.</p>
           )}
-        </section>
+        </SpotlightPanel>
         {renderResponseNote('Response Note', 'response_note', 4)}
         <div className={styles.actions}>
           <button type="button" className="primaryButton" onClick={handleReviewUpsResponse} disabled={responseClosed}>
@@ -964,7 +965,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
             <form className={styles.form} onSubmit={handleCreateTicket}>
               <div className={styles.formGrid}>
                 <label>
-                  Ticket # <span className={styles.requiredMark}>Required</span>
+                  Ticket # <span className={styles.requiredMark} aria-label="Required">*</span>
                   <input
                     type="text"
                     value={ticketForm.external_ticket_number}
@@ -974,7 +975,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   />
                 </label>
                 <label>
-                  Device Type <span className={styles.requiredMark}>Required</span>
+                  Device Type <span className={styles.requiredMark} aria-label="Required">*</span>
                   <select
                     value={ticketForm.device_type}
                     onChange={(event) => updateTicketForm('device_type', event.target.value)}
@@ -986,7 +987,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   </select>
                 </label>
                 <label>
-                  School Name <span className={styles.requiredMark}>Required</span>
+                  School Name <span className={styles.requiredMark} aria-label="Required">*</span>
                   <input
                     type="text"
                     value={ticketForm.school_name}
@@ -996,7 +997,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   />
                 </label>
                 <label>
-                  TEA Code <span className={styles.requiredMark}>Required</span>
+                  TEA Code <span className={styles.requiredMark} aria-label="Required">*</span>
                   <input
                     type="number"
                     value={ticketForm.tea_code}
@@ -1016,7 +1017,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   />
                 </label>
                 <label>
-                  Date <span className={styles.requiredMark}>Required</span>
+                  Date <span className={styles.requiredMark} aria-label="Required">*</span>
                   <input
                     type="date"
                     value={ticketForm.date}
@@ -1227,7 +1228,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
               ) : (
                 <>
                   {!showRmaOnly && (
-                    <section className={styles.responsePhase}>
+                    <SpotlightPanel as="section" className={styles.responsePhase} mode="interactive">
                       <h3>Phase 1 - Temporary Device</h3>
                       <div className={styles.responseSections}>
                         {renderDeviceFields('Defective Device', defectiveFields, responseClosed)}
@@ -1239,11 +1240,11 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                           Review & Copy Temporary Response
                         </button>
                       </div>
-                    </section>
+                    </SpotlightPanel>
                   )}
 
                   {rmaPhaseUnlocked && (
-                    <section className={styles.responsePhase}>
+                    <SpotlightPanel as="section" className={styles.responsePhase} mode="interactive">
                       <h3>Phase 2 - RMA Replacement</h3>
                       <div className={styles.responseSections}>
                         {renderDeviceFields('Replacement Device', replacementFields, responseClosed)}
@@ -1255,7 +1256,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                         </button>
                         <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                       </div>
-                    </section>
+                    </SpotlightPanel>
                   )}
                 </>
               )}

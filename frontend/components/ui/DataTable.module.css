@@ -3,6 +3,22 @@
   border-radius: 8px;
   background: var(--bg-card);
   overflow-x: auto;
+  scrollbar-color: var(--border-strong) var(--bg-secondary);
+  scrollbar-width: thin;
+}
+
+.tableWrap::-webkit-scrollbar {
+  height: 0.7rem;
+}
+
+.tableWrap::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.tableWrap::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid var(--bg-secondary);
+  border-radius: 999px;
 }
 
 .table {
@@ -14,17 +30,17 @@
 .table th,
 .table td {
   border-bottom: 1px solid var(--border-color);
-  padding: 0.72rem 0.85rem;
+  padding: 0.78rem 0.9rem;
   text-align: left;
   vertical-align: middle;
 }
 
 .table th {
   background: var(--bg-sticky);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.76rem;
   font-weight: 800;
-  letter-spacing: 0;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -38,7 +54,7 @@
 }
 
 .table td {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -55,6 +71,11 @@
   background: var(--table-row-hover);
 }
 
+.table tbody tr:has(input[type="checkbox"]:checked) {
+  background: var(--color-accent-soft);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
 .clickableRow {
   cursor: pointer;
   transition: background-color 0.16s ease, box-shadow 0.16s ease;
@@ -66,12 +87,16 @@
 
 .clickableRow:focus-visible {
   outline: none;
-  box-shadow: inset 3px 0 0 var(--border-focus), var(--focus-ring);
+  box-shadow: inset 3px 0 0 var(--border-focus);
 }
 
 .actionCell {
   text-align: right;
   white-space: nowrap;
+}
+
+.actionCell > * {
+  justify-content: flex-end;
 }
 
 .table tbody tr:last-child td {

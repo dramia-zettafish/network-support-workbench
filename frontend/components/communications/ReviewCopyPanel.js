@@ -62,7 +62,7 @@ export default function ReviewCopyPanel({
   }
 
   return (
-    <SpotlightPanel as="section" className={styles.panel} aria-label={title}>
+    <SpotlightPanel as="section" className={styles.panel} mode="interactive" aria-label={title}>
       <div className={styles.header}>
         <div>
           <h3>{title}</h3>

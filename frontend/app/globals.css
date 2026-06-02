@@ -337,9 +337,16 @@ textarea {
   width: 100%;
   background: var(--bg-input);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-input-border);
   border-radius: 6px;
   padding: 0.7rem;
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--border-strong);
 }
 
 input::placeholder,
@@ -359,6 +366,7 @@ a:focus-visible {
 
 textarea {
   min-height: 80px;
+  line-height: 1.5;
   resize: vertical;
 }
 
@@ -380,4 +388,15 @@ p {
 .mutedText {
   color: var(--text-muted);
   margin-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

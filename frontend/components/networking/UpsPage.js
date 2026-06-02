@@ -11,6 +11,7 @@ import EmptyState from '../ui/EmptyState';
 import Modal from '../ui/Modal';
 import PageHeader from '../ui/PageHeader';
 import SectionCard from '../ui/SectionCard';
+import SpotlightPanel from '../ui/SpotlightPanel';
 import StatusBadge from '../ui/StatusBadge';
 import { useToast } from '../ui/ToastProvider';
 import UpsStatusStepper from '../ups/UpsStatusStepper';
@@ -678,6 +679,8 @@ export default function UpsPage({ onNavigate }) {
         <SectionCard
           title="Pending Installs"
           description="Select pending records to build the NOC schedule and move them to In Progress."
+          spotlight
+          spotlightMode="interactive"
           actions={
             <div className={styles.sectionActions}>
               <SelectionHint count={selectedPendingIds.size} label="pending selected" />
@@ -703,6 +706,8 @@ export default function UpsPage({ onNavigate }) {
         <SectionCard
           title="In Progress"
           description="Select scheduled records to copy the warehouse table. Servicing rows open fulfillment and move to Completed from the modal."
+          spotlight
+          spotlightMode="interactive"
           actions={
             <div className={styles.sectionActions}>
               <SelectionHint count={selectedInProgressIds.size} label="in progress selected" />
@@ -739,6 +744,8 @@ export default function UpsPage({ onNavigate }) {
         <SectionCard
           title="Completed"
           description="Fulfilled UPS records stay here for quick reference."
+          spotlight
+          spotlightMode="interactive"
           actions={
             <input
               className={styles.completedSearch}
@@ -770,7 +777,7 @@ export default function UpsPage({ onNavigate }) {
           <p className="mutedText">Review install dates, then move selected records to In Progress. The schedule table will be copied for Outlook.</p>
           <div className={styles.scheduleRows}>
             {scheduleRows.map((row) => (
-              <div key={row.ups_installation_id} className={styles.scheduleRow}>
+              <SpotlightPanel key={row.ups_installation_id} className={styles.scheduleRow} mode="interactive">
                 <div>
                   <strong>Ticket #{row.ticket_number}</strong>
                   <span>{row.school_name}</span>
@@ -786,7 +793,7 @@ export default function UpsPage({ onNavigate }) {
                     required
                   />
                 </label>
-              </div>
+              </SpotlightPanel>
             ))}
           </div>
           <div className={styles.actions}>
@@ -873,7 +880,7 @@ export default function UpsPage({ onNavigate }) {
             <ReadOnlyField label="Equipment" value={deriveUpsEquipment(fulfillmentInstall)} />
           </div>
 
-          <form className={styles.serviceForm} onSubmit={handleSaveFulfillment}>
+          <SpotlightPanel as="form" className={styles.serviceForm} mode="interactive" onSubmit={handleSaveFulfillment}>
             <div className={styles.serviceGrid}>
               <label>
                 Replacement Asset Tag #
@@ -908,7 +915,7 @@ export default function UpsPage({ onNavigate }) {
               <button type="submit" className="successButton">Move to Completed</button>
               <button type="button" className="secondaryButton" onClick={closeFulfillmentModal}>Cancel</button>
             </div>
-          </form>
+          </SpotlightPanel>
         </Modal>
       )}
 
@@ -930,27 +937,35 @@ export default function UpsPage({ onNavigate }) {
           ) : (
             <>
               <UpsStatusStepper status={completedSummaryInstall.status} snmpIp={completedSummaryInstall.snmp_ip} />
-              <div className={styles.summaryDetails}>
-                <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
-                <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
-                <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code || '-'} />
-                <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf || '-'} />
-                <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date || '-'} />
-                <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
-                <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number || '-'} />
-                <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial || '-'} />
-                <ReadOnlyField label="Defective Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
-                <ReadOnlyField label="Defective MAC" value={completedSummaryInstall.mac_address || '-'} />
-                <ReadOnlyField label="Replacement Asset Tag #" value={completedSummaryInstall.new_asset_tag || '-'} />
-                <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number || '-'} />
-                <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial || '-'} />
-                <ReadOnlyField label="Replacement MAC" value={completedSummaryInstall.new_mac_address || '-'} />
-                <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip || '-'} />
-                <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial || '-'} />
-                <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag || '-'} />
-                <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po || '-'} />
-                <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po || '-'} />
-                <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
+              <div className={styles.summaryGroups}>
+                <ReadOnlyGroup title="Ticket / Location">
+                  <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
+                  <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
+                  <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code} />
+                  <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf} />
+                  <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date} />
+                  <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
+                </ReadOnlyGroup>
+                <ReadOnlyGroup title="Defective Equipment">
+                  <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number} />
+                  <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial} />
+                  <ReadOnlyField label="Defective Asset Tag #" value={completedSummaryInstall.asset_tag} />
+                  <ReadOnlyField label="Defective MAC" value={completedSummaryInstall.mac_address} />
+                </ReadOnlyGroup>
+                <ReadOnlyGroup title="Replacement Equipment">
+                  <ReadOnlyField label="Replacement Asset Tag #" value={completedSummaryInstall.new_asset_tag} />
+                  <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number} />
+                  <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial} />
+                  <ReadOnlyField label="Replacement MAC" value={completedSummaryInstall.new_mac_address} />
+                  <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial} />
+                  <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag} />
+                </ReadOnlyGroup>
+                <ReadOnlyGroup title="SNMP / Warehouse / Status">
+                  <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip} />
+                  <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po} />
+                  <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po} />
+                  <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
+                </ReadOnlyGroup>
               </div>
             </>
           )}
@@ -1007,11 +1022,22 @@ function SelectionHint({ count, label }) {
   return count > 0 ? <StatusBadge tone="info">{count} {label}</StatusBadge> : <StatusBadge>0 selected</StatusBadge>;
 }
 
-function ReadOnlyField({ label, value }) {
+function ReadOnlyGroup({ title, children }) {
   return (
-    <div className={styles.readOnlyField}>
+    <SpotlightPanel as="section" className={styles.readOnlyGroup} mode="interactive">
+      <h3>{title}</h3>
+      <div className={styles.summaryDetails}>{children}</div>
+    </SpotlightPanel>
+  );
+}
+
+function ReadOnlyField({ label, value }) {
+  const isMissing = value === undefined || value === null || String(value).trim() === '';
+
+  return (
+    <div className={`${styles.readOnlyField} ${isMissing ? styles.missingField : ''}`}>
       <span>{label}</span>
-      <strong>{value || '-'}</strong>
+      <strong>{isMissing ? '-' : value}</strong>
     </div>
   );
 }

@@ -1,8 +1,12 @@
 import styles from './SectionCard.module.css';
+import SpotlightPanel from './SpotlightPanel';
 
-export default function SectionCard({ title, description, actions, children, className = '' }) {
+export default function SectionCard({ title, description, actions, children, className = '', spotlight = false, spotlightMode = 'static' }) {
+  const Surface = spotlight ? SpotlightPanel : 'section';
+  const surfaceProps = spotlight ? { as: 'section', intensity: 'subtle', mode: spotlightMode } : {};
+
   return (
-    <section className={`${styles.card} ${className}`}>
+    <Surface className={`${styles.card} ${className}`} {...surfaceProps}>
       {(title || description || actions) && (
         <div className={styles.header}>
           <div>
@@ -13,6 +17,6 @@ export default function SectionCard({ title, description, actions, children, cla
         </div>
       )}
       {children}
-    </section>
+    </Surface>
   );
 }

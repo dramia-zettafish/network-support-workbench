@@ -39,6 +39,7 @@
 .messageField textarea {
   line-height: 1.55;
   min-height: min(50vh, 440px);
+  padding: 0.85rem;
   white-space: pre-wrap;
 }
 
@@ -67,10 +68,12 @@
 
 .actions {
   align-items: center;
+  border-top: 1px solid var(--border-color);
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
   justify-content: flex-end;
+  padding-top: 0.9rem;
 }
 
 @media (max-width: 620px) {
