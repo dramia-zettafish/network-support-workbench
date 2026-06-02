@@ -1,0 +1,72 @@
+.panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.header {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  justify-content: space-between;
+}
+
+.header h3 {
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.header p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0.2rem 0 0;
+}
+
+.messageField {
+  color: var(--text-secondary);
+  display: grid;
+  font-weight: 700;
+  gap: 0.45rem;
+}
+
+.messageField textarea {
+  min-height: min(48vh, 420px);
+  white-space: pre-wrap;
+}
+
+.feedback {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+}
+
+.success {
+  border-color: var(--status-success-border);
+  color: var(--status-success-text);
+}
+
+.error {
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-text);
+}
+
+.actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 620px) {
+  .actions {
+    justify-content: flex-start;
+  }
+}

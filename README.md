@@ -138,7 +138,7 @@ The Next.js API layer exposes routes under `/api/*`, including:
 
 - Keep API calls routed through `/api/*`.
 - Use `NEXT_PUBLIC_NETWORK_API_BASE` only when testing a future API mount; it defaults to `/api`.
-- Current standalone routes are `/`, `/tickets`, `/ups`, and `/noc-responses`; the future EUSupport target is the same workflow under `/network`.
+- Current standalone routes are `/`, `/tickets`, and `/ups`; the future EUSupport target is the same workflow under `/network`.
 - Keep generated folders such as `frontend/node_modules/` and `frontend/.next/` out of version control.
 - Prefer focused changes that preserve the current Next.js/PostgreSQL architecture.
 - Use the workflow notes in `docs/` for implementation context, including `docs/EUSUPPORT_ALIGNMENT_NOTES.md`.

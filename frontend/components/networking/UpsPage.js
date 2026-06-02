@@ -24,6 +24,8 @@ const emptyFulfillmentForm = {
   new_battery_pack_asset_tag: ''
 };
 
+const completedInstallLimit = 10;
+
 const completedEditableFields = [
   ['asset_tag', 'Defective Asset Tag #'],
   ['mac_address', 'Defective MAC'],
@@ -65,6 +67,7 @@ export default function UpsPage({ onNavigate }) {
   const [completedSummaryInstall, setCompletedSummaryInstall] = useState(null);
   const [completedSummaryEditing, setCompletedSummaryEditing] = useState(false);
   const [completedSummaryForm, setCompletedSummaryForm] = useState({});
+  const [returnToServicingConfirmOpen, setReturnToServicingConfirmOpen] = useState(false);
 
   useEffect(() => {
     loadUpsInstallations();
@@ -202,7 +205,7 @@ export default function UpsPage({ onNavigate }) {
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0'),
-        apiRequest('/ups-installations/?status=fulfilled&limit=15&offset=0')
+        apiRequest(`/ups-installations/?status=fulfilled&limit=${completedInstallLimit}&offset=0`)
       ]);
       setPendingInstalls(pending || []);
       setInProgressInstalls([...(scheduled || []), ...(servicing || [])]);
@@ -219,7 +222,7 @@ export default function UpsPage({ onNavigate }) {
   async function loadCompletedInstallations(currentSearch) {
     try {
       const searchParam = currentSearch.trim() ? `&search=${encodeURIComponent(currentSearch.trim())}` : '';
-      const completed = await apiRequest(`/ups-installations/?status=fulfilled&limit=15&offset=0${searchParam}`);
+      const completed = await apiRequest(`/ups-installations/?status=fulfilled&limit=${completedInstallLimit}&offset=0${searchParam}`);
       setCompletedInstalls(completed || []);
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to search completed UPS installations.' });
@@ -430,6 +433,7 @@ export default function UpsPage({ onNavigate }) {
     setCompletedSummaryInstall(null);
     setCompletedSummaryEditing(false);
     setCompletedSummaryForm({});
+    setReturnToServicingConfirmOpen(false);
   }
 
   function updateFulfillmentForm(field, value) {
@@ -494,6 +498,31 @@ export default function UpsPage({ onNavigate }) {
       loadUpsInstallations();
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to update completed UPS details.' });
+    }
+  }
+
+  function openReturnToServicingConfirm() {
+    setReturnToServicingConfirmOpen(true);
+  }
+
+  function closeReturnToServicingConfirm() {
+    setReturnToServicingConfirmOpen(false);
+  }
+
+  async function handleReturnToServicing() {
+    if (!completedSummaryInstall) return;
+
+    try {
+      await apiRequest(`/ups-installations/${completedSummaryInstall.ups_installation_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'servicing' })
+      });
+      setMessage({ type: 'success', text: 'UPS record returned to Servicing.' });
+      closeCompletedSummaryModal();
+      loadUpsInstallations();
+    } catch (error) {
+      setReturnToServicingConfirmOpen(false);
+      setMessage({ type: 'error', text: 'Failed to return UPS record to Servicing.' });
     }
   }
 
@@ -921,9 +950,26 @@ export default function UpsPage({ onNavigate }) {
                 <button type="button" className="secondaryButton" onClick={() => setCompletedSummaryEditing(false)}>Cancel</button>
               </>
             ) : (
-              <button type="button" className="secondaryButton" onClick={() => setCompletedSummaryEditing(true)}>Edit</button>
+              <>
+                {completedSummaryInstall.status === 'fulfilled' && (
+                  <button type="button" className="secondaryButton" onClick={openReturnToServicingConfirm}>Return to Servicing</button>
+                )}
+                <button type="button" className="secondaryButton" onClick={() => setCompletedSummaryEditing(true)}>Edit</button>
+              </>
             )}
             <button type="button" className="secondaryButton" onClick={closeCompletedSummaryModal}>Close</button>
+          </div>
+        </Modal>
+      )}
+
+      {returnToServicingConfirmOpen && (
+        <Modal title="Return to Servicing" onClose={closeReturnToServicingConfirm}>
+          <p className="mutedText">
+            Return this UPS record to Servicing? Use this if the record was completed or fulfilled by mistake, or if it still needs follow-up. Existing UPS details will be preserved.
+          </p>
+          <div className={styles.actions}>
+            <button type="button" className="secondaryButton" onClick={closeReturnToServicingConfirm}>Cancel</button>
+            <button type="button" className="primaryButton" onClick={handleReturnToServicing}>Return to Servicing</button>
           </div>
         </Modal>
       )}

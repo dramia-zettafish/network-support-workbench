@@ -746,8 +746,10 @@ async function commitRows(pool, actions) {
 module.exports = {
   analyzeRows,
   cleanDate,
+  findExistingMatches,
   getImportIdentity,
   getImportIdentities,
+  normalizeRow,
   parseCsv,
   planImportRows,
   resolveMode,

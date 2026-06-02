@@ -14,7 +14,7 @@ The future merge reason is specific: use EUSupport Duo NG/session authentication
 
 - Replaced the primary left-sidebar frame with an EUSupport-style top navigation shell.
 - Added workspace framing for `Network Technician`.
-- Set primary modules to `Dashboard`, `Tickets`, `UPS`, and `NOC Responses`.
+- Set primary modules to `Dashboard`, `Tickets`, and `UPS`. NOC/device response work remains inside the ticket workflow instead of a separate primary module.
 - Added Tailwind foundation files and EUSupport-compatible design tokens while preserving existing Network Vcode CSS variables.
 - Added a standalone-safe auth seam at `GET /api/auth/me`.
 - Made the frontend API base configurable through `NEXT_PUBLIC_NETWORK_API_BASE`, defaulting to `/api`.
@@ -60,10 +60,9 @@ EUSupport Duo NG/session current user replaces the local/mock resolver.
 /              -> Network Vcode dashboard / operations overview
 /tickets       -> Network tickets/work orders
 /ups           -> UPS workflow
-/noc-responses -> NOC/device response workflow
 ```
 
-`/field` was not added because no real field workflow was scaffolded in this pass.
+`/noc-responses` was removed after review because it only duplicated the ticket response workflow. `/field` was not added because no real field workflow was scaffolded in this pass.
 
 ## Future EUSupport Routes
 
@@ -71,11 +70,10 @@ EUSupport Duo NG/session current user replaces the local/mock resolver.
 /network               -> Network Vcode dashboard / operations overview
 /network/tickets       -> Network tickets/work orders
 /network/ups           -> UPS workflow
-/network/noc-responses -> NOC/device response workflow
 /network/field         -> field workflow behind Duo NG, if needed
 ```
 
-`NEXT_PUBLIC_NETWORK_ROUTE_PREFIX` can be used later to help the shell generate prefixed module links.
+`NEXT_PUBLIC_NETWORK_ROUTE_PREFIX` can be used later to help the shell generate prefixed module links only. It does not replace the future structural move to EUSupport's `app/network` route tree.
 
 ## API Routes
 
@@ -152,7 +150,6 @@ docker compose up --build -d -> passed
 GET http://127.0.0.1:8080/ -> 200
 GET http://127.0.0.1:8080/tickets -> 200
 GET http://127.0.0.1:8080/ups -> 200
-GET http://127.0.0.1:8080/noc-responses -> 200
 GET http://127.0.0.1:8080/api/auth/me -> 200
 GET http://127.0.0.1:8080/api/tickets?limit=1&offset=0 -> 200
 GET http://127.0.0.1:8080/api/ups-installations?limit=1&offset=0 -> 200

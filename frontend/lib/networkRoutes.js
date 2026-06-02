@@ -3,8 +3,7 @@ export const NETWORK_ROUTE_PREFIX = process.env.NEXT_PUBLIC_NETWORK_ROUTE_PREFIX
 export const networkModules = [
   { id: 'dashboard', label: 'Dashboard', href: withNetworkPrefix('/') },
   { id: 'tickets', label: 'Tickets', href: withNetworkPrefix('/tickets') },
-  { id: 'ups', label: 'UPS', href: withNetworkPrefix('/ups') },
-  { id: 'noc-responses', label: 'NOC Responses', href: withNetworkPrefix('/noc-responses') }
+  { id: 'ups', label: 'UPS', href: withNetworkPrefix('/ups') }
 ];
 
 export function withNetworkPrefix(path) {

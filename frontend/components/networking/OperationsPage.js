@@ -144,7 +144,7 @@ export default function OperationsPage({ onNavigate }) {
     <div className={styles.page}>
       <PageHeader
         eyebrow="Networking"
-        title="Operations"
+        title="Network Operations"
         description="Weekly view for open tickets, current UPS installs, and recently closed work."
         actions={<button type="button" className="secondaryButton" onClick={loadOperationsData}>Refresh</button>}
       />

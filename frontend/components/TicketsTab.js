@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../lib/api';
-import { copyTextToClipboard } from '../lib/clipboard';
+import ReviewCopyPanel from './communications/ReviewCopyPanel';
 import DataTable from './ui/DataTable';
 import Modal from './ui/Modal';
 import SectionCard from './ui/SectionCard';
@@ -132,6 +132,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
   const [rmaEmailForm, setRmaEmailForm] = useState(emptyRmaEmail);
   const [upsDevices, setUpsDevices] = useState([{ ...emptyUpsDevice }]);
   const [batteryPacks, setBatteryPacks] = useState([]);
+  const [reviewCopyConfig, setReviewCopyConfig] = useState(null);
 
   useEffect(() => {
     loadTickets();
@@ -300,6 +301,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
     setRmaEmailForm(emptyRmaEmail);
     setUpsDevices([{ ...emptyUpsDevice }]);
     setBatteryPacks([]);
+    setReviewCopyConfig(null);
     setResponseLoading(true);
 
     try {
@@ -325,6 +327,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
     setRmaEmailForm(emptyRmaEmail);
     setUpsDevices([{ ...emptyUpsDevice }]);
     setBatteryPacks([]);
+    setReviewCopyConfig(null);
     setResponseLoading(false);
   }
 
@@ -420,92 +423,160 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
     });
   }
 
-  async function handleCopyPermanentResponse() {
+  function openReviewCopy(config) {
+    setReviewCopyConfig({
+      title: 'Review Response',
+      cancelLabel: 'Back',
+      confirmLabel: 'Copy Message',
+      ...config
+    });
+  }
+
+  function closeReviewCopy() {
+    setReviewCopyConfig(null);
+  }
+
+  function handleReviewPermanentResponse() {
+    openReviewCopy({
+      purpose: 'Permanent Replacement Response',
+      initialMessage: buildPermanentResponseText(responseForm),
+      onConfirmCopy: completePermanentResponse
+    });
+  }
+
+  async function completePermanentResponse() {
     try {
       await saveResponse('closed');
-      await copyTextToClipboard(buildPermanentResponseText(responseForm));
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
       setMessage({ type: 'success', text: 'Permanent replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy permanent replacement response.' });
+      throw error;
     }
   }
 
-  async function handleCopyNoReplacementResponse() {
+  function handleReviewNoReplacementResponse() {
+    openReviewCopy({
+      purpose: 'No Replacement Response',
+      initialMessage: buildNoReplacementResponseText(responseForm),
+      onConfirmCopy: completeNoReplacementResponse
+    });
+  }
+
+  async function completeNoReplacementResponse() {
     try {
       await saveResponse('closed');
-      await copyTextToClipboard(buildNoReplacementResponseText(responseForm));
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
       setMessage({ type: 'success', text: 'No replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy no replacement response.' });
+      throw error;
     }
   }
 
-  async function handleCopyTempResponse() {
+  function handleReviewTempResponse() {
+    openReviewCopy({
+      purpose: 'Temporary Device Response',
+      initialMessage: buildTempResponseText(responseForm),
+      onConfirmCopy: completeTempResponse
+    });
+  }
+
+  async function completeTempResponse() {
     try {
       await saveResponse('temp_placed');
-      await copyTextToClipboard(buildTempResponseText(responseForm));
       await holdTicketStatus();
       setRmaEmailStep(true);
+      setReviewCopyConfig(null);
       loadTickets();
       setMessage({ type: 'success', text: 'Temporary device response copied. Prepare the RMA email next.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy temporary device response.' });
+      throw error;
     }
   }
 
-  async function handleCopyRmaEmail() {
+  function handleReviewRmaEmail() {
+    openReviewCopy({
+      title: 'Review RMA Email',
+      purpose: 'RMA Admin Email',
+      initialMessage: buildRmaEmailText(responseTicket, responseForm, rmaEmailForm),
+      onConfirmCopy: completeRmaEmail
+    });
+  }
+
+  async function completeRmaEmail() {
     try {
-      await copyTextToClipboard(buildRmaEmailText(responseTicket, responseForm, rmaEmailForm));
       closeResponseModal();
       setMessage({ type: 'success', text: 'RMA email copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy RMA email.' });
+      throw error;
     }
   }
 
-  async function handleCopyRmaResponse() {
+  function handleReviewRmaResponse() {
+    openReviewCopy({
+      purpose: 'RMA Replacement Response',
+      initialMessage: buildRmaResponseText(responseForm),
+      onConfirmCopy: completeRmaResponse
+    });
+  }
+
+  async function completeRmaResponse() {
     try {
       await saveResponse('closed');
-      await copyTextToClipboard(buildRmaResponseText(responseForm));
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
       setMessage({ type: 'success', text: 'RMA replacement response copied.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy RMA replacement response.' });
+      throw error;
     }
   }
 
-  async function handleCopyUpsResponse() {
+  function buildUpsResponseForm() {
+    const firstUps = upsDevices[0] || emptyUpsDevice;
+    return {
+      ...responseForm,
+      resolution_type: 'permanent',
+      response_note: responseForm.response_note,
+      replacement_model: firstUps.model,
+      replacement_sn: firstUps.sn,
+      replacement_mac: firstUps.mac_address,
+      replacement_hostname: firstUps.hostname,
+      replacement_ip: firstUps.snmp_ip,
+      replacement_asset_tag: firstUps.asset_tag,
+      replacement_room: firstUps.room
+    };
+  }
+
+  function handleReviewUpsResponse() {
+    const upsResponseForm = buildUpsResponseForm();
+    openReviewCopy({
+      purpose: 'UPS Response',
+      initialMessage: buildUpsResponseText(upsResponseForm.response_note, upsDevices, batteryPacks),
+      onConfirmCopy: completeUpsResponse
+    });
+  }
+
+  async function completeUpsResponse() {
     try {
-      const firstUps = upsDevices[0] || emptyUpsDevice;
-      const upsResponseForm = {
-        ...responseForm,
-        resolution_type: 'permanent',
-        response_note: responseForm.response_note,
-        replacement_model: firstUps.model,
-        replacement_sn: firstUps.sn,
-        replacement_mac: firstUps.mac_address,
-        replacement_hostname: firstUps.hostname,
-        replacement_ip: firstUps.snmp_ip,
-        replacement_asset_tag: firstUps.asset_tag,
-        replacement_room: firstUps.room
-      };
+      const upsResponseForm = buildUpsResponseForm();
       await saveResponse('closed', upsResponseForm);
       await seedUpsPendingInstalls(upsDevices, batteryPacks);
-      await copyTextToClipboard(buildUpsResponseText(upsResponseForm.response_note, upsDevices, batteryPacks));
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
       setMessage({ type: 'success', text: 'UPS response copied and UPS install moved to Pending.' });
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to copy UPS response.' });
+      throw error;
     }
   }
 
@@ -823,8 +894,8 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
         </section>
         {renderResponseNote('Response Note', 'response_note', 4)}
         <div className={styles.actions}>
-          <button type="button" className="primaryButton" onClick={handleCopyUpsResponse} disabled={responseClosed}>
-            Copy UPS Response
+          <button type="button" className="primaryButton" onClick={handleReviewUpsResponse} disabled={responseClosed}>
+            Review & Copy UPS Response
           </button>
           <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
         </div>
@@ -984,7 +1055,9 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
             <p className="mutedText">Loading response workflow...</p>
           ) : (
             <div className={styles.responseModal}>
-              {responseTicket.device_type === 'ups' ? (
+              {reviewCopyConfig ? (
+                <ReviewCopyPanel {...reviewCopyConfig} onCancel={closeReviewCopy} />
+              ) : responseTicket.device_type === 'ups' ? (
                 renderUpsResponse()
               ) : rmaEmailStep ? (
                 <>
@@ -1032,8 +1105,8 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                     </label>
                   </div>
                   <div className={styles.actions}>
-                    <button type="button" className="primaryButton" onClick={handleCopyRmaEmail}>
-                      Copy RMA Email
+                    <button type="button" className="primaryButton" onClick={handleReviewRmaEmail}>
+                      Review & Copy RMA Email
                     </button>
                     <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                   </div>
@@ -1071,8 +1144,8 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   </div>
                   {renderResponseNote('Response Note', 'response_note', 5)}
                   <div className={styles.actions}>
-                    <button type="button" className="primaryButton" onClick={handleCopyNoReplacementResponse} disabled={responseClosed}>
-                      Copy Response
+                    <button type="button" className="primaryButton" onClick={handleReviewNoReplacementResponse} disabled={responseClosed}>
+                      Review & Copy Response
                     </button>
                     <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                   </div>
@@ -1085,8 +1158,8 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   </div>
                   {renderResponseNote('Response Note', 'response_note')}
                   <div className={styles.actions}>
-                    <button type="button" className="primaryButton" onClick={handleCopyPermanentResponse} disabled={responseClosed}>
-                      Copy Response
+                    <button type="button" className="primaryButton" onClick={handleReviewPermanentResponse} disabled={responseClosed}>
+                      Review & Copy Response
                     </button>
                     <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                   </div>
@@ -1102,8 +1175,8 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                       </div>
                       {renderResponseNote('Temp Response Note', 'temp_response_note')}
                       <div className={styles.actions}>
-                        <button type="button" className="primaryButton" onClick={handleCopyTempResponse} disabled={responseClosed}>
-                          Copy Temporary Response
+                        <button type="button" className="primaryButton" onClick={handleReviewTempResponse} disabled={responseClosed}>
+                          Review & Copy Temporary Response
                         </button>
                       </div>
                     </section>
@@ -1117,8 +1190,8 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                       </div>
                       {renderResponseNote('RMA Response Note', 'rma_response_note')}
                       <div className={styles.actions}>
-                        <button type="button" className="primaryButton" onClick={handleCopyRmaResponse} disabled={responseClosed}>
-                          Copy RMA Response
+                        <button type="button" className="primaryButton" onClick={handleReviewRmaResponse} disabled={responseClosed}>
+                          Review & Copy RMA Response
                         </button>
                         <button type="button" className="secondaryButton" onClick={closeResponseModal}>Close</button>
                       </div>
