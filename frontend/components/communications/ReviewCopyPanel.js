@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { copyTextToClipboard } from '../../lib/clipboard';
+import SpotlightPanel from '../ui/SpotlightPanel';
 import { useToast } from '../ui/ToastProvider';
 import styles from './ReviewCopyPanel.module.css';
 
@@ -61,7 +62,7 @@ export default function ReviewCopyPanel({
   }
 
   return (
-    <section className={styles.panel} aria-label={title}>
+    <SpotlightPanel as="section" className={styles.panel} aria-label={title}>
       <div className={styles.header}>
         <div>
           <h3>{title}</h3>
@@ -87,6 +88,6 @@ export default function ReviewCopyPanel({
           {cancelLabel}
         </button>
       </div>
-    </section>
+    </SpotlightPanel>
   );
 }

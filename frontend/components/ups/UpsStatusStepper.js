@@ -1,3 +1,4 @@
+import SpotlightPanel from '../ui/SpotlightPanel';
 import styles from './UpsStatusStepper.module.css';
 
 const steps = [
@@ -12,7 +13,7 @@ export default function UpsStatusStepper({ status, snmpIp }) {
   const missingFulfilledIp = status === 'fulfilled' && !String(snmpIp || '').trim();
 
   return (
-    <div className={styles.stepper} aria-label="UPS workflow status">
+    <SpotlightPanel className={styles.stepper} aria-label="UPS workflow status">
       <ol className={styles.steps}>
         {steps.map((step, index) => {
           const state = index < currentIndex ? 'complete' : index === currentIndex ? 'current' : 'pending';
@@ -25,6 +26,6 @@ export default function UpsStatusStepper({ status, snmpIp }) {
         })}
       </ol>
       {missingFulfilledIp && <p className={styles.warning}>Fulfilled, missing SNMP IP</p>}
-    </div>
+    </SpotlightPanel>
   );
 }
