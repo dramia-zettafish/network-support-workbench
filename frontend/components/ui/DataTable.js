@@ -19,10 +19,20 @@ export default function DataTable({ columns, rows, getRowKey, emptyTitle, emptyD
         <tbody>
           {rows.map((row, index) => {
             const rowIsClickable = onRowClick && (!canClickRow || canClickRow(row));
+            const handleKeyDown = rowIsClickable
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onRowClick(row);
+                  }
+                }
+              : undefined;
             return (
               <tr
                 key={getRowKey ? getRowKey(row) : index}
                 onClick={rowIsClickable ? () => onRowClick(row) : undefined}
+                onKeyDown={handleKeyDown}
+                tabIndex={rowIsClickable ? 0 : undefined}
                 className={rowIsClickable ? styles.clickableRow : undefined}
               >
                 {columns.map((column) => (

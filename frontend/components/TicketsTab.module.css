@@ -1,13 +1,13 @@
 .layout {
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
   grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
   align-items: start;
 }
 
 .form {
   display: grid;
-  gap: 1rem;
+  gap: 1.05rem;
 }
 
 .form label {
@@ -19,7 +19,7 @@
 
 .formGrid {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.95rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -54,7 +54,22 @@
   border: 1px solid var(--border-color);
   border-radius: 6px;
   margin: 0;
-  padding: 0.45rem 0.7rem;
+  padding: 0.55rem 0.75rem;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.requiredMark {
+  color: var(--status-warning-text);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.retryState {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .success {
@@ -76,7 +91,7 @@
 
 .responseModal {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .responseHeader {
@@ -84,9 +99,9 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
-  gap: 1rem;
+  gap: 1.05rem;
   grid-template-columns: minmax(220px, 1fr) minmax(180px, auto) auto;
-  padding: 0.85rem;
+  padding: 0.95rem;
 }
 
 .responseHeader label,
@@ -124,7 +139,7 @@
 
 .responseSections {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.85rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -133,8 +148,8 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
-  gap: 0.5rem;
-  padding: 0.6rem;
+  gap: 0.65rem;
+  padding: 0.8rem;
 }
 
 .responseFieldset h4,

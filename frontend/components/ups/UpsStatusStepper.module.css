@@ -1,0 +1,75 @@
+.stepper {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem;
+}
+
+.steps {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: 0.84rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.marker {
+  align-items: center;
+  background: var(--status-neutral-bg);
+  border: 1px solid var(--status-neutral-border);
+  border-radius: 999px;
+  color: var(--status-neutral-text);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  height: 1.45rem;
+  justify-content: center;
+  width: 1.45rem;
+}
+
+.complete {
+  color: var(--status-success-text);
+}
+
+.complete .marker {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+  color: var(--status-success-text);
+}
+
+.current {
+  color: var(--text-primary);
+}
+
+.current .marker {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
+  color: var(--status-info-text);
+}
+
+.warning {
+  border-top: 1px solid var(--border-color);
+  color: var(--status-warning-text);
+  font-size: 0.85rem;
+  margin: 0;
+  padding-top: 0.6rem;
+}
+
+@media (max-width: 760px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

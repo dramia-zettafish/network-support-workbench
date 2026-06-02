@@ -1,5 +1,6 @@
 import './globals.css';
 import AppShell from '../components/shell/AppShell';
+import { ToastProvider } from '../components/ui/ToastProvider';
 
 export const metadata = {
   title: 'Network Vcode',
@@ -22,7 +23,9 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <ToastProvider>
+          <AppShell>{children}</AppShell>
+        </ToastProvider>
       </body>
     </html>
   );

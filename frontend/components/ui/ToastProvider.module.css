@@ -1,0 +1,87 @@
+.viewport {
+  display: grid;
+  gap: 0.65rem;
+  pointer-events: none;
+  position: fixed;
+  right: 1rem;
+  top: 4.5rem;
+  width: min(360px, calc(100vw - 2rem));
+  z-index: 40;
+}
+
+.toast {
+  align-items: flex-start;
+  animation: toastIn 0.16s ease-out;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  color: var(--text-secondary);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem 0.85rem;
+  pointer-events: auto;
+}
+
+.toast strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.toast p {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0.25rem 0 0;
+}
+
+.success {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+}
+
+.error {
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+}
+
+.warning {
+  background: var(--status-warning-bg);
+  border-color: var(--status-warning-border);
+}
+
+.info {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
+}
+
+.closeButton {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  height: 1.75rem;
+  padding: 0;
+  width: 1.75rem;
+}
+
+.closeButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+  transform: none;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

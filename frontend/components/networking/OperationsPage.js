@@ -11,6 +11,7 @@ import PageHeader from '../ui/PageHeader';
 import SectionCard from '../ui/SectionCard';
 import StatCard from '../ui/StatCard';
 import StatusBadge from '../ui/StatusBadge';
+import { useToast } from '../ui/ToastProvider';
 import styles from './OperationsPage.module.css';
 
 const openTicketColumns = [
@@ -45,12 +46,13 @@ const deviceTypeLabels = {
 
 export default function OperationsPage({ onNavigate }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [tickets, setTickets] = useState([]);
   const [upsPending, setUpsPending] = useState([]);
   const [upsScheduled, setUpsScheduled] = useState([]);
   const [upsServicing, setUpsServicing] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     loadOperationsData();
@@ -98,7 +100,7 @@ export default function OperationsPage({ onNavigate }) {
 
   async function loadOperationsData() {
     setLoading(true);
-    setMessage(null);
+    setLoadFailed(false);
 
     try {
       const [
@@ -120,7 +122,12 @@ export default function OperationsPage({ onNavigate }) {
       setUpsScheduled(scheduledUps || []);
       setUpsServicing(servicingUps || []);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to load operations dashboard data.' });
+      setLoadFailed(true);
+      showToast({
+        type: 'error',
+        title: 'Dashboard failed to load',
+        message: 'Retry the dashboard data when you are ready.'
+      });
     } finally {
       setLoading(false);
     }
@@ -148,8 +155,6 @@ export default function OperationsPage({ onNavigate }) {
         description="Weekly view for open tickets, current UPS installs, and recently closed work."
         actions={<button type="button" className="secondaryButton" onClick={loadOperationsData}>Refresh</button>}
       />
-
-      {message && <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>}
 
       <div className={styles.dashboardStack}>
         <div className={styles.overviewGrid}>
@@ -182,6 +187,11 @@ export default function OperationsPage({ onNavigate }) {
         <SectionCard title="Open / On Hold Tickets" description="Current ticket queue preview.">
           {loading ? (
             <p className="mutedText">Loading tickets...</p>
+          ) : loadFailed ? (
+            <div className={styles.retryState}>
+              <p className="mutedText">Failed to load tickets.</p>
+              <button type="button" className="secondaryButton" onClick={loadOperationsData}>Retry</button>
+            </div>
           ) : openTicketRows.length > 0 ? (
             <DataTable
               columns={openTicketColumns}
@@ -197,6 +207,11 @@ export default function OperationsPage({ onNavigate }) {
         <SectionCard title="UPS This Week" description="Current Monday-Friday install view. Past dates automatically fall off.">
           {loading ? (
             <p className="mutedText">Loading this week's installs...</p>
+          ) : loadFailed ? (
+            <div className={styles.retryState}>
+              <p className="mutedText">Failed to load UPS installs.</p>
+              <button type="button" className="secondaryButton" onClick={loadOperationsData}>Retry</button>
+            </div>
           ) : weeklyInstallRows.length > 0 ? (
             <DataTable columns={weeklyInstallColumns} rows={weeklyInstallRows} getRowKey={(row) => row.id} onRowClick={() => navigate('ups')} />
           ) : (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { copyTextToClipboard } from '../../lib/clipboard';
+import { useToast } from '../ui/ToastProvider';
 import styles from './ReviewCopyPanel.module.css';
 
 export default function ReviewCopyPanel({
@@ -13,6 +14,7 @@ export default function ReviewCopyPanel({
   onConfirmCopy,
   onCancel
 }) {
+  const { showToast } = useToast();
   const [message, setMessage] = useState(initialMessage || '');
   const [feedback, setFeedback] = useState(null);
   const [copying, setCopying] = useState(false);
@@ -29,16 +31,28 @@ export default function ReviewCopyPanel({
     try {
       await copyTextToClipboard(message);
     } catch (error) {
-      setFeedback({ type: 'error', text: 'Copy failed. Try again or copy the text manually.' });
+      showToast({
+        type: 'error',
+        title: 'Copy failed',
+        message: 'Try again or copy the text manually.'
+      });
       setCopying(false);
       return;
     }
 
     try {
-      setFeedback({ type: 'success', text: 'Copied. Updating workflow...' });
-      await onConfirmCopy?.(message);
+      setFeedback({ type: 'info', text: 'Copied. Updating workflow...' });
+      if (onConfirmCopy) {
+        await onConfirmCopy(message);
+      } else {
+        showToast({ type: 'success', title: 'Message copied' });
+      }
     } catch (error) {
-      setFeedback({ type: 'error', text: 'Copied, but the workflow update failed.' });
+      showToast({
+        type: 'error',
+        title: 'Workflow update failed',
+        message: 'The message was copied, but the workflow update did not complete.'
+      });
       setCopying(false);
       return;
     }

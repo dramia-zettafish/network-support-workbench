@@ -7,6 +7,7 @@ import DataTable from './ui/DataTable';
 import Modal from './ui/Modal';
 import SectionCard from './ui/SectionCard';
 import StatusBadge from './ui/StatusBadge';
+import { useToast } from './ui/ToastProvider';
 import styles from './TicketsTab.module.css';
 
 const limit = 12;
@@ -115,13 +116,19 @@ const emptyBatteryPack = {
 };
 
 export default function TicketsTab({ initialOpenTicket = null, initialOpenTicketNumber = null, showCreate = true }) {
+  const { showToast } = useToast();
   const [ticketForm, setTicketForm] = useState(emptyTicket);
   const [tickets, setTickets] = useState([]);
   const [statusFilter, setStatusFilter] = useState('open');
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [savingTicket, setSavingTicket] = useState(false);
+  const [updatingTicket, setUpdatingTicket] = useState(false);
+  const [deletingTicket, setDeletingTicket] = useState(false);
+  const [deleteConfirmTicket, setDeleteConfirmTicket] = useState(null);
   const [editingTicket, setEditingTicket] = useState(null);
   const [editForm, setEditForm] = useState({ note: '', status: 'open' });
   const [responseTicket, setResponseTicket] = useState(null);
@@ -150,12 +157,6 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       openResponseModal(matchingTicket);
     }
   }, [initialOpenTicketNumber, tickets]);
-
-  useEffect(() => {
-    if (!message) return;
-    const timeout = window.setTimeout(() => setMessage(null), 3000);
-    return () => window.clearTimeout(timeout);
-  }, [message]);
 
   const visibleTickets = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -188,14 +189,19 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       render: (ticket) => (
         <div className={styles.rowActions}>
           <button type="button" className="secondaryButton compactButton" onClick={(event) => openEditModal(event, ticket)}>Edit</button>
-          <button type="button" className="dangerButton compactButton" onClick={(event) => handleDeleteTicket(event, ticket.ticket_number)}>Delete</button>
+          <button type="button" className="dangerButton compactButton" onClick={(event) => openDeleteConfirm(event, ticket)}>Delete</button>
         </div>
       )
     }
   ];
 
+  function notify(type, title, message = '') {
+    showToast({ type, title, message });
+  }
+
   async function loadTickets() {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const params = new URLSearchParams({
         limit: String(limit),
@@ -209,7 +215,8 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       const loadedTickets = await apiRequest(`/tickets/?${params}`);
       setTickets(loadedTickets || []);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to load tickets.' });
+      setLoadFailed(true);
+      notify('error', 'Failed to load tickets', 'Use Retry to load the ticket list again.');
     } finally {
       setLoading(false);
     }
@@ -217,6 +224,32 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
 
   async function handleCreateTicket(event) {
     event.preventDefault();
+    setFormError('');
+
+    if (!ticketForm.external_ticket_number.trim()) {
+      setFormError('Ticket # is required.');
+      return;
+    }
+
+    if (!ticketForm.school_name.trim()) {
+      setFormError('School Name is required.');
+      return;
+    }
+
+    if (!ticketForm.tea_code.trim()) {
+      setFormError('TEA Code is required.');
+      return;
+    }
+
+    if (!Number.isInteger(Number.parseInt(ticketForm.tea_code, 10))) {
+      setFormError('TEA Code must be a number.');
+      return;
+    }
+
+    if (!ticketForm.date) {
+      setFormError('Date is required.');
+      return;
+    }
 
     const payload = {
       external_ticket_number: ticketForm.external_ticket_number,
@@ -229,16 +262,20 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
     };
 
     try {
+      setSavingTicket(true);
       await apiRequest('/tickets/', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      setMessage({ type: 'success', text: 'Ticket created successfully.' });
+      notify('success', 'Ticket created');
       setTicketForm(emptyTicket);
       setCurrentPage(1);
       loadTickets();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to create ticket.' });
+      notify('error', 'Failed to create ticket', 'Check the required fields and try again.');
+      setFormError('Failed to create ticket. Check the required fields and try again.');
+    } finally {
+      setSavingTicket(false);
     }
   }
 
@@ -247,6 +284,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
     if (!editingTicket) return;
 
     try {
+      setUpdatingTicket(true);
       await apiRequest(`/tickets/${editingTicket.ticket_number}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -254,24 +292,39 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
           status: editForm.status
         })
       });
-      setMessage({ type: 'success', text: 'Ticket updated successfully.' });
+      notify('success', 'Ticket updated');
       closeEditModal();
       loadTickets();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to update ticket.' });
+      notify('error', 'Failed to update ticket');
+    } finally {
+      setUpdatingTicket(false);
     }
   }
 
-  async function handleDeleteTicket(event, ticketNumber) {
+  function openDeleteConfirm(event, ticket) {
     event.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this ticket?')) return;
+    setDeleteConfirmTicket(ticket);
+  }
+
+  function closeDeleteConfirm() {
+    if (deletingTicket) return;
+    setDeleteConfirmTicket(null);
+  }
+
+  async function handleConfirmDeleteTicket() {
+    if (!deleteConfirmTicket) return;
 
     try {
-      await apiRequest(`/tickets/${ticketNumber}`, { method: 'DELETE' });
-      setMessage({ type: 'success', text: 'Ticket deleted successfully.' });
+      setDeletingTicket(true);
+      await apiRequest(`/tickets/${deleteConfirmTicket.ticket_number}`, { method: 'DELETE' });
+      notify('success', 'Ticket deleted');
+      setDeleteConfirmTicket(null);
       loadTickets();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to delete ticket.' });
+      notify('error', 'Failed to delete ticket');
+    } finally {
+      setDeletingTicket(false);
     }
   }
 
@@ -450,9 +503,9 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
-      setMessage({ type: 'success', text: 'Permanent replacement response copied.' });
+      notify('success', 'Permanent response copied');
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy permanent replacement response.' });
+      notify('error', 'Permanent response failed', 'The workflow update did not complete.');
       throw error;
     }
   }
@@ -471,9 +524,9 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
-      setMessage({ type: 'success', text: 'No replacement response copied.' });
+      notify('success', 'No replacement response copied');
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy no replacement response.' });
+      notify('error', 'No replacement response failed', 'The workflow update did not complete.');
       throw error;
     }
   }
@@ -493,9 +546,9 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       setRmaEmailStep(true);
       setReviewCopyConfig(null);
       loadTickets();
-      setMessage({ type: 'success', text: 'Temporary device response copied. Prepare the RMA email next.' });
+      notify('success', 'Temporary response copied', 'Prepare the RMA email next.');
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy temporary device response.' });
+      notify('error', 'Temporary response failed', 'The workflow update did not complete.');
       throw error;
     }
   }
@@ -512,9 +565,9 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
   async function completeRmaEmail() {
     try {
       closeResponseModal();
-      setMessage({ type: 'success', text: 'RMA email copied.' });
+      notify('success', 'RMA email copied');
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy RMA email.' });
+      notify('error', 'RMA email failed');
       throw error;
     }
   }
@@ -533,9 +586,9 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
-      setMessage({ type: 'success', text: 'RMA replacement response copied.' });
+      notify('success', 'RMA response copied');
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy RMA replacement response.' });
+      notify('error', 'RMA response failed', 'The workflow update did not complete.');
       throw error;
     }
   }
@@ -573,9 +626,9 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
       await closeTicketStatus();
       closeResponseModal();
       loadTickets();
-      setMessage({ type: 'success', text: 'UPS response copied and UPS install moved to Pending.' });
+      notify('success', 'UPS response copied', 'UPS install moved to Pending.');
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy UPS response.' });
+      notify('error', 'UPS response failed', 'The workflow update did not complete.');
       throw error;
     }
   }
@@ -911,7 +964,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
             <form className={styles.form} onSubmit={handleCreateTicket}>
               <div className={styles.formGrid}>
                 <label>
-                  Ticket #
+                  Ticket # <span className={styles.requiredMark}>Required</span>
                   <input
                     type="text"
                     value={ticketForm.external_ticket_number}
@@ -921,7 +974,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   />
                 </label>
                 <label>
-                  Device Type
+                  Device Type <span className={styles.requiredMark}>Required</span>
                   <select
                     value={ticketForm.device_type}
                     onChange={(event) => updateTicketForm('device_type', event.target.value)}
@@ -933,7 +986,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   </select>
                 </label>
                 <label>
-                  School Name
+                  School Name <span className={styles.requiredMark}>Required</span>
                   <input
                     type="text"
                     value={ticketForm.school_name}
@@ -943,7 +996,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   />
                 </label>
                 <label>
-                  TEA Code
+                  TEA Code <span className={styles.requiredMark}>Required</span>
                   <input
                     type="number"
                     value={ticketForm.tea_code}
@@ -963,7 +1016,7 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   />
                 </label>
                 <label>
-                  Date
+                  Date <span className={styles.requiredMark}>Required</span>
                   <input
                     type="date"
                     value={ticketForm.date}
@@ -981,8 +1034,11 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
                   rows={3}
                 />
               </label>
+              {formError && <p className={`${styles.message} ${styles.error}`}>{formError}</p>}
               <div className={styles.actions}>
-                <button type="submit" className="primaryButton">Create Ticket</button>
+                <button type="submit" className="primaryButton" disabled={savingTicket}>
+                  {savingTicket ? 'Creating...' : 'Create Ticket'}
+                </button>
               </div>
             </form>
           </SectionCard>
@@ -990,7 +1046,6 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
 
         <SectionCard
           title="Tickets"
-          actions={message && <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>}
         >
           <div className={styles.filters}>
             <select
@@ -1016,6 +1071,11 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
 
           {loading ? (
             <p className="mutedText">Loading tickets...</p>
+          ) : loadFailed ? (
+            <div className={styles.retryState}>
+              <p className="mutedText">Failed to load tickets.</p>
+              <button type="button" className="secondaryButton" onClick={loadTickets}>Retry</button>
+            </div>
           ) : (
             <DataTable
               columns={ticketColumns}
@@ -1230,10 +1290,24 @@ export default function TicketsTab({ initialOpenTicket = null, initialOpenTicket
               </select>
             </label>
             <div className={styles.actions}>
-              <button type="submit" className="primaryButton">Update Ticket</button>
-              <button type="button" className="secondaryButton" onClick={closeEditModal}>Cancel</button>
+              <button type="submit" className="primaryButton" disabled={updatingTicket}>
+                {updatingTicket ? 'Updating...' : 'Update Ticket'}
+              </button>
+              <button type="button" className="secondaryButton" onClick={closeEditModal} disabled={updatingTicket}>Cancel</button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {deleteConfirmTicket && (
+        <Modal title="Delete this record?" onClose={closeDeleteConfirm}>
+          <p className="mutedText">This action cannot be undone.</p>
+          <div className={styles.actions}>
+            <button type="button" className="secondaryButton" onClick={closeDeleteConfirm} disabled={deletingTicket}>Cancel</button>
+            <button type="button" className="dangerButton" onClick={handleConfirmDeleteTicket} disabled={deletingTicket}>
+              {deletingTicket ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
         </Modal>
       )}
     </>

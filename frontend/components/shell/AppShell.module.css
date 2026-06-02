@@ -47,6 +47,16 @@
   text-decoration: none;
 }
 
+.brand:focus-visible,
+.navLink:focus-visible,
+.activeNavLink:focus-visible,
+.mobileNavLink:focus-visible,
+.activeMobileNavLink:focus-visible {
+  border-radius: 6px;
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
 .envBadge {
   background: var(--color-accent-soft);
   border: 1px solid rgba(96, 165, 250, 0.28);
@@ -105,6 +115,10 @@
 .activeNavLink {
   color: var(--accent-secondary);
   text-decoration: none;
+}
+
+.navLink:hover {
+  background: var(--bg-alt);
 }
 
 .activeNavLink {

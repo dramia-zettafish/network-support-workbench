@@ -12,6 +12,8 @@ import Modal from '../ui/Modal';
 import PageHeader from '../ui/PageHeader';
 import SectionCard from '../ui/SectionCard';
 import StatusBadge from '../ui/StatusBadge';
+import { useToast } from '../ui/ToastProvider';
+import UpsStatusStepper from '../ups/UpsStatusStepper';
 import styles from './UpsPage.module.css';
 
 const emptyFulfillmentForm = {
@@ -50,12 +52,13 @@ function getNextMondayIsoDate() {
 
 export default function UpsPage({ onNavigate }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [pendingInstalls, setPendingInstalls] = useState([]);
   const [inProgressInstalls, setInProgressInstalls] = useState([]);
   const [completedInstalls, setCompletedInstalls] = useState([]);
   const [completedSearch, setCompletedSearch] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedPendingIds, setSelectedPendingIds] = useState(new Set());
   const [selectedInProgressIds, setSelectedInProgressIds] = useState(new Set());
   const [scheduleRows, setScheduleRows] = useState([]);
@@ -68,6 +71,7 @@ export default function UpsPage({ onNavigate }) {
   const [completedSummaryEditing, setCompletedSummaryEditing] = useState(false);
   const [completedSummaryForm, setCompletedSummaryForm] = useState({});
   const [returnToServicingConfirmOpen, setReturnToServicingConfirmOpen] = useState(false);
+  const [returningToServicing, setReturningToServicing] = useState(false);
 
   useEffect(() => {
     loadUpsInstallations();
@@ -79,12 +83,6 @@ export default function UpsPage({ onNavigate }) {
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [completedSearch]);
-
-  useEffect(() => {
-    if (!message) return;
-    const timeout = window.setTimeout(() => setMessage(null), 3500);
-    return () => window.clearTimeout(timeout);
-  }, [message]);
 
   const visiblePendingInstalls = useMemo(
     () => pendingInstalls,
@@ -198,8 +196,13 @@ export default function UpsPage({ onNavigate }) {
     { key: 'snmp_ip', label: 'IP', render: (install) => install.snmp_ip || '-' }
   ];
 
+  function notify(type, title, message = '') {
+    showToast({ type, title, message });
+  }
+
   async function loadUpsInstallations() {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const [pending, scheduled, servicing, completed] = await Promise.all([
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
@@ -213,7 +216,8 @@ export default function UpsPage({ onNavigate }) {
       setSelectedPendingIds(new Set());
       setSelectedInProgressIds(new Set());
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to load UPS installations.' });
+      setLoadFailed(true);
+      notify('error', 'UPS records failed to load', 'Use Retry to load the UPS queues again.');
     } finally {
       setLoading(false);
     }
@@ -225,7 +229,7 @@ export default function UpsPage({ onNavigate }) {
       const completed = await apiRequest(`/ups-installations/?status=fulfilled&limit=${completedInstallLimit}&offset=0${searchParam}`);
       setCompletedInstalls(completed || []);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to search completed UPS installations.' });
+      notify('error', 'Completed UPS search failed', 'Try the search again or clear the search field.');
     }
   }
 
@@ -242,7 +246,7 @@ export default function UpsPage({ onNavigate }) {
       }));
 
     if (selectedRows.length === 0) {
-      setMessage({ type: 'error', text: 'Select at least one pending UPS record first.' });
+      notify('warning', 'Select pending UPS records', 'Choose at least one pending record before generating the NOC schedule.');
       return;
     }
 
@@ -269,10 +273,10 @@ export default function UpsPage({ onNavigate }) {
     event.stopPropagation();
     try {
       await apiRequest(`/ups/${install.ups_installation_id}/rollback`, { method: 'PATCH' });
-      setMessage({ type: 'success', text: 'UPS record sent back to Pending.' });
+      notify('success', 'UPS returned to Pending');
       loadUpsInstallations();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to send UPS record back to Pending.' });
+      notify('error', 'Failed to return UPS to Pending');
     }
   }
 
@@ -296,11 +300,11 @@ export default function UpsPage({ onNavigate }) {
         buildScheduleHtmlTable(copiedRows),
         buildScheduleTextTable(copiedRows)
       );
-      setMessage({ type: 'success', text: 'NOC schedule copied and selected UPS records moved to In Progress.' });
+      notify('success', 'NOC schedule copied', 'Selected UPS records moved to In Progress.');
       closeScheduleModal();
       loadUpsInstallations();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to move selected UPS records to In Progress.' });
+      notify('error', 'Failed to move UPS records', 'The selected records were not moved to In Progress.');
     }
   }
 
@@ -375,7 +379,7 @@ export default function UpsPage({ onNavigate }) {
       }));
 
     if (rows.length === 0) {
-      setMessage({ type: 'error', text: 'Select at least one scheduled UPS record first.' });
+      notify('warning', 'Select scheduled UPS records', 'Choose at least one scheduled record before copying the warehouse table.');
       return;
     }
 
@@ -453,11 +457,11 @@ export default function UpsPage({ onNavigate }) {
         method: 'PUT',
         body: JSON.stringify({ status: 'fulfilled' })
       });
-      setMessage({ type: 'success', text: 'UPS fulfillment details saved and moved to Completed.' });
+      notify('success', 'UPS fulfillment saved', 'The record moved to Completed.');
       closeFulfillmentModal();
       loadUpsInstallations();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to move UPS record to Completed.' });
+      notify('error', 'Failed to complete UPS record');
     }
   }
 
@@ -494,10 +498,10 @@ export default function UpsPage({ onNavigate }) {
       setCompletedSummaryInstall(updatedInstall);
       setCompletedSummaryForm(buildCompletedSummaryForm(updatedInstall));
       setCompletedSummaryEditing(false);
-      setMessage({ type: 'success', text: 'Completed UPS details updated.' });
+      notify('success', 'Completed UPS details updated');
       loadUpsInstallations();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to update completed UPS details.' });
+      notify('error', 'Failed to update completed UPS details');
     }
   }
 
@@ -506,6 +510,7 @@ export default function UpsPage({ onNavigate }) {
   }
 
   function closeReturnToServicingConfirm() {
+    if (returningToServicing) return;
     setReturnToServicingConfirmOpen(false);
   }
 
@@ -513,16 +518,19 @@ export default function UpsPage({ onNavigate }) {
     if (!completedSummaryInstall) return;
 
     try {
+      setReturningToServicing(true);
       await apiRequest(`/ups-installations/${completedSummaryInstall.ups_installation_id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'servicing' })
       });
-      setMessage({ type: 'success', text: 'UPS record returned to Servicing.' });
+      notify('success', 'UPS returned to Servicing');
       closeCompletedSummaryModal();
       loadUpsInstallations();
     } catch (error) {
       setReturnToServicingConfirmOpen(false);
-      setMessage({ type: 'error', text: 'Failed to return UPS record to Servicing.' });
+      notify('error', 'Failed to return UPS to Servicing', 'The UPS details modal stayed open so you can retry.');
+    } finally {
+      setReturningToServicing(false);
     }
   }
 
@@ -550,12 +558,12 @@ export default function UpsPage({ onNavigate }) {
         buildWarehouseHtmlTable(normalizedRows),
         buildWarehouseTextTable(normalizedRows)
       );
-      setMessage({ type: 'success', text: 'Warehouse table copied and selected UPS records marked Servicing.' });
+      notify('success', 'Warehouse table copied', 'Selected UPS records were marked Servicing.');
       setSelectedInProgressIds(new Set());
       closeWarehouseModal();
       loadUpsInstallations();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to copy warehouse table.' });
+      notify('error', 'Failed to copy warehouse table');
     }
   }
 
@@ -642,16 +650,10 @@ export default function UpsPage({ onNavigate }) {
         actions={
           <>
             <button type="button" className="secondaryButton" onClick={handleDashboardClick}>Dashboard</button>
-            <button type="button" className="secondaryButton" onClick={loadUpsInstallations}>Refresh</button>
+            <button type="button" className="secondaryButton" onClick={loadUpsInstallations} disabled={loading}>Refresh</button>
           </>
         }
       />
-
-      {message && (
-        <div className={styles.toolbar}>
-          <p className={`${styles.message} ${styles[message.type]}`}>{message.text}</p>
-        </div>
-      )}
 
       <div className={styles.summaryGrid}>
         <SectionCard title="Pending">
@@ -689,6 +691,8 @@ export default function UpsPage({ onNavigate }) {
         >
           {loading ? (
             <p className="mutedText">Loading pending UPS installs...</p>
+          ) : loadFailed ? (
+            <RetryState onRetry={loadUpsInstallations} text="Failed to load pending UPS installs." />
           ) : visiblePendingInstalls.length > 0 ? (
             <DataTable columns={pendingColumns} rows={visiblePendingInstalls} getRowKey={(install) => install.ups_installation_id} />
           ) : (
@@ -717,6 +721,8 @@ export default function UpsPage({ onNavigate }) {
         >
           {loading ? (
             <p className="mutedText">Loading in-progress UPS installs...</p>
+          ) : loadFailed ? (
+            <RetryState onRetry={loadUpsInstallations} text="Failed to load in-progress UPS installs." />
           ) : visibleInProgressInstalls.length > 0 ? (
             <DataTable
               columns={inProgressColumns}
@@ -744,6 +750,8 @@ export default function UpsPage({ onNavigate }) {
         >
           {loading ? (
             <p className="mutedText">Loading completed UPS installs...</p>
+          ) : loadFailed ? (
+            <RetryState onRetry={loadUpsInstallations} text="Failed to load completed UPS installs." />
           ) : visibleCompletedInstalls.length > 0 ? (
             <DataTable
               columns={completedColumns}
@@ -920,28 +928,31 @@ export default function UpsPage({ onNavigate }) {
               ))}
             </div>
           ) : (
-            <div className={styles.summaryDetails}>
-              <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
-              <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
-              <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code || '-'} />
-              <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf || '-'} />
-              <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date || '-'} />
-              <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
-              <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number || '-'} />
-              <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial || '-'} />
-              <ReadOnlyField label="Defective Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
-              <ReadOnlyField label="Defective MAC" value={completedSummaryInstall.mac_address || '-'} />
-              <ReadOnlyField label="Replacement Asset Tag #" value={completedSummaryInstall.new_asset_tag || '-'} />
-              <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number || '-'} />
-              <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial || '-'} />
-              <ReadOnlyField label="Replacement MAC" value={completedSummaryInstall.new_mac_address || '-'} />
-              <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip || '-'} />
-              <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial || '-'} />
-              <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag || '-'} />
-              <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po || '-'} />
-              <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po || '-'} />
-              <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
-            </div>
+            <>
+              <UpsStatusStepper status={completedSummaryInstall.status} snmpIp={completedSummaryInstall.snmp_ip} />
+              <div className={styles.summaryDetails}>
+                <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
+                <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
+                <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code || '-'} />
+                <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf || '-'} />
+                <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date || '-'} />
+                <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />
+                <ReadOnlyField label="Defective UPS SN" value={completedSummaryInstall.serial_number || '-'} />
+                <ReadOnlyField label="Defective BP SN" value={completedSummaryInstall.defective_battery_pack_serial || '-'} />
+                <ReadOnlyField label="Defective Asset Tag #" value={completedSummaryInstall.asset_tag || '-'} />
+                <ReadOnlyField label="Defective MAC" value={completedSummaryInstall.mac_address || '-'} />
+                <ReadOnlyField label="Replacement Asset Tag #" value={completedSummaryInstall.new_asset_tag || '-'} />
+                <ReadOnlyField label="UPS SN" value={completedSummaryInstall.new_serial_number || '-'} />
+                <ReadOnlyField label="SNMPWEBCARD SN" value={completedSummaryInstall.new_webcard_serial || '-'} />
+                <ReadOnlyField label="Replacement MAC" value={completedSummaryInstall.new_mac_address || '-'} />
+                <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip || '-'} />
+                <ReadOnlyField label="BP SN" value={completedSummaryInstall.new_battery_pack_serial || '-'} />
+                <ReadOnlyField label="BP Asset Tag #" value={completedSummaryInstall.new_battery_pack_asset_tag || '-'} />
+                <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po || '-'} />
+                <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po || '-'} />
+                <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
+              </div>
+            </>
           )}
           <div className={styles.actions}>
             {completedSummaryEditing ? (
@@ -952,7 +963,7 @@ export default function UpsPage({ onNavigate }) {
             ) : (
               <>
                 {completedSummaryInstall.status === 'fulfilled' && (
-                  <button type="button" className="secondaryButton" onClick={openReturnToServicingConfirm}>Return to Servicing</button>
+                  <button type="button" className="correctionButton" onClick={openReturnToServicingConfirm}>Return to Servicing</button>
                 )}
                 <button type="button" className="secondaryButton" onClick={() => setCompletedSummaryEditing(true)}>Edit</button>
               </>
@@ -968,8 +979,10 @@ export default function UpsPage({ onNavigate }) {
             Return this UPS record to Servicing? Use this if the record was completed or fulfilled by mistake, or if it still needs follow-up. Existing UPS details will be preserved.
           </p>
           <div className={styles.actions}>
-            <button type="button" className="secondaryButton" onClick={closeReturnToServicingConfirm}>Cancel</button>
-            <button type="button" className="primaryButton" onClick={handleReturnToServicing}>Return to Servicing</button>
+            <button type="button" className="secondaryButton" onClick={closeReturnToServicingConfirm} disabled={returningToServicing}>Cancel</button>
+            <button type="button" className="primaryButton" onClick={handleReturnToServicing} disabled={returningToServicing}>
+              {returningToServicing ? 'Returning...' : 'Return to Servicing'}
+            </button>
           </div>
         </Modal>
       )}
@@ -979,6 +992,15 @@ export default function UpsPage({ onNavigate }) {
 
 function DateBadge({ value }) {
   return <span className={styles.dateBadge}>{value || '-'}</span>;
+}
+
+function RetryState({ text, onRetry }) {
+  return (
+    <div className={styles.retryState}>
+      <p className="mutedText">{text}</p>
+      <button type="button" className="secondaryButton" onClick={onRetry}>Retry</button>
+    </div>
+  );
 }
 
 function SelectionHint({ count, label }) {
