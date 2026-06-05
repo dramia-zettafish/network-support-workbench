@@ -2,6 +2,7 @@ export const upsStatusLabelMap = {
   intake: 'Pending',
   servicing: 'Servicing',
   scheduled: 'In Progress',
+  confirm_ip: 'Confirm IP',
   fulfilled: 'Fulfilled'
 };
 
@@ -9,6 +10,7 @@ export const upsStatusToneMap = {
   intake: 'warning',
   servicing: 'info',
   scheduled: 'success',
+  confirm_ip: 'warning',
   fulfilled: 'neutral'
 };
 

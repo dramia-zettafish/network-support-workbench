@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
 import { copyHtmlToClipboard } from '../../lib/clipboard';
 import { moduleHref } from '../../lib/networkRoutes';
+import { isScreenshotMode } from '../../lib/publicConfig';
+import { getScreenshotOperationsData } from '../../lib/screenshotData';
 import { deriveUpsEquipment, getUpsTicketLabel, toggleSelection, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
@@ -27,6 +29,19 @@ const emptyFulfillmentForm = {
   new_battery_pack_asset_tag: ''
 };
 
+const emptyIpConfirmForm = {
+  snmp_ip: '',
+  hostname: '',
+  new_mac_address: '',
+  new_webcard_serial: '',
+  new_asset_tag: '',
+  new_serial_number: '',
+  ups_po: '',
+  new_battery_pack_serial: '',
+  new_battery_pack_asset_tag: '',
+  bp_po: ''
+};
+
 const completedInstallLimit = 10;
 
 const completedEditableFields = [
@@ -42,6 +57,66 @@ const completedEditableFields = [
   ['ups_po', 'UPS PO'],
   ['bp_po', 'BP PO']
 ];
+
+function formatTableCell(value) {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.filter(Boolean).map(formatTableCell).filter(Boolean).join(', ');
+  if (typeof value === 'object') return '';
+  return String(value).trim();
+}
+
+function formatEmailDate(value) {
+  const normalized = formatTableCell(value);
+  if (!normalized) return '';
+
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return normalized;
+
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+}
+
+const scheduleTableColumns = [
+  { label: 'Ticket #', value: (row) => row.ticket_number },
+  { label: 'IDF', value: (row) => row.idf },
+  { label: 'School Name', value: (row) => row.school_name },
+  { label: 'Install Contact', htmlLabel: 'Install<br>Contact', value: (row) => row.install_contact },
+  { label: 'Install Contact Number', htmlLabel: 'Install Contact<br>Number', value: (row) => row.install_contact_number },
+  { label: 'Install Scheduled', htmlLabel: 'Install<br>Scheduled', value: (row) => formatEmailDate(row.proposed_install_date) },
+  { label: 'Type', value: (row) => row.type || 'Replace' },
+  { label: 'Equipment', value: (row) => row.equipment }
+];
+
+const warehouseTableColumns = [
+  { label: 'Ticket #', value: (row) => row.ticket_number },
+  { label: 'IDF', value: (row) => row.idf },
+  { label: 'School Name', value: (row) => row.school_name },
+  { label: 'Install Date', value: (row) => formatEmailDate(row.install_date) },
+  { label: 'Type', value: (row) => row.type },
+  { label: 'Equipment', value: (row) => row.equipment },
+  { label: 'UPS Serial', value: (row) => row.ups_serial },
+  { label: 'UPS PO', value: (row) => row.ups_po },
+  { label: 'BP Serial(s)', value: (row) => row.bp_serials },
+  { label: 'BP PO', value: (row) => row.bp_po }
+];
+
+const ipResponseTableColumns = [
+  { label: 'FP TKT', value: (row) => formatIpResponseCell(getUpsTicketLabel(row)) },
+  { label: 'Device Name', value: (row) => formatIpResponseCell(row.hostname) },
+  { label: 'DNS Suffix', value: () => 'tisd.org' },
+  { label: 'IP Address', value: (row) => formatIpResponseCell(row.snmp_ip) },
+  { label: 'Description', value: () => 'UPS SNMP' },
+  { label: 'Asset Tag', value: (row) => formatIpResponseCell(row.new_asset_tag) },
+  { label: 'Serial', value: (row) => formatIpResponseCell(row.new_serial_number) },
+  { label: 'Mac Add', value: (row) => formatIpResponseCell(row.new_mac_address) },
+  { label: 'UPS PO#', value: (row) => formatIpResponseCell(row.ups_po) },
+  { label: 'PB SN', value: (row) => formatIpResponseCell(row.new_battery_pack_serial) },
+  { label: 'BP Asset tag', value: (row) => formatIpResponseCell(row.new_battery_pack_asset_tag) },
+  { label: 'BP PO#', value: (row) => formatIpResponseCell(row.bp_po) }
+];
+
+function formatIpResponseCell(value) {
+  return formatTableCell(value) || 'N/A';
+}
 
 function getNextMondayIsoDate() {
   const date = new Date();
@@ -68,6 +143,12 @@ export default function UpsPage({ onNavigate }) {
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
   const [fulfillmentInstall, setFulfillmentInstall] = useState(null);
   const [fulfillmentForm, setFulfillmentForm] = useState(emptyFulfillmentForm);
+  const [ipConfirmInstall, setIpConfirmInstall] = useState(null);
+  const [ipConfirmForm, setIpConfirmForm] = useState(emptyIpConfirmForm);
+  const [completingIpConfirm, setCompletingIpConfirm] = useState(false);
+  const [batchIpConfirmRows, setBatchIpConfirmRows] = useState([]);
+  const [batchIpConfirmModalOpen, setBatchIpConfirmModalOpen] = useState(false);
+  const [batchIpConfirmCopying, setBatchIpConfirmCopying] = useState(false);
   const [completedSummaryInstall, setCompletedSummaryInstall] = useState(null);
   const [completedSummaryEditing, setCompletedSummaryEditing] = useState(false);
   const [completedSummaryForm, setCompletedSummaryForm] = useState({});
@@ -97,21 +178,36 @@ export default function UpsPage({ onNavigate }) {
 
   const visibleCompletedInstalls = useMemo(() => completedInstalls, [completedInstalls]);
 
-  const visibleScheduledInProgressIds = useMemo(
+  const visibleWarehouseSelectableIds = useMemo(
     () => visibleInProgressInstalls
-      .filter((install) => install.status === 'scheduled')
+      .filter((install) => canSelectForWarehouse(install))
       .map((install) => install.ups_installation_id),
     [visibleInProgressInstalls]
   );
 
-  const selectedScheduledInProgressCount = useMemo(
-    () => visibleScheduledInProgressIds.filter((id) => selectedInProgressIds.has(id)).length,
-    [selectedInProgressIds, visibleScheduledInProgressIds]
+  const selectedInProgressRows = useMemo(
+    () => visibleInProgressInstalls.filter((install) => selectedInProgressIds.has(install.ups_installation_id)),
+    [selectedInProgressIds, visibleInProgressInstalls]
   );
 
-  const allVisibleScheduledSelected =
-    visibleScheduledInProgressIds.length > 0 &&
-    selectedScheduledInProgressCount === visibleScheduledInProgressIds.length;
+  const selectedWarehouseCount = useMemo(
+    () => visibleWarehouseSelectableIds.filter((id) => selectedInProgressIds.has(id)).length,
+    [selectedInProgressIds, visibleWarehouseSelectableIds]
+  );
+
+  const selectedInProgressStatuses = useMemo(
+    () => new Set(selectedInProgressRows.map((install) => install.status)),
+    [selectedInProgressRows]
+  );
+
+  const hasSelectedInProgressRows = selectedInProgressRows.length > 0;
+  const allSelectedWarehouseReady = hasSelectedInProgressRows && selectedInProgressRows.every((install) => canSelectForWarehouse(install));
+  const allSelectedConfirmIp = hasSelectedInProgressRows && selectedInProgressRows.every((install) => install.status === 'confirm_ip');
+  const hasMixedSelectedStatuses = selectedInProgressStatuses.size > 1;
+
+  const allVisibleWarehouseSelected =
+    visibleWarehouseSelectableIds.length > 0 &&
+    selectedWarehouseCount === visibleWarehouseSelectableIds.length;
 
   const pendingColumns = [
     {
@@ -128,7 +224,7 @@ export default function UpsPage({ onNavigate }) {
     },
     { key: 'ticket', label: 'Ticket #', render: getUpsTicketLabel },
     { key: 'school_name', label: 'School' },
-    { key: 'tea_code', label: 'TEA Code' },
+    { key: 'tea_code', label: 'Identifier' },
     { key: 'idf', label: 'MDF/IDF', render: (install) => install.idf || '-' },
     { key: 'serial_number', label: 'Defective UPS Serial', render: (install) => install.serial_number || '-' },
     { key: 'defective_battery_pack_serial', label: 'Defective BP Serial', render: (install) => install.defective_battery_pack_serial || '-' },
@@ -148,15 +244,19 @@ export default function UpsPage({ onNavigate }) {
     {
       key: 'select',
       label: 'Select',
-      render: (install) => (
-        <input
-          type="checkbox"
-          aria-label={`Select in progress UPS ticket ${getUpsTicketLabel(install)}`}
-          checked={selectedInProgressIds.has(install.ups_installation_id)}
-          onClick={(event) => event.stopPropagation()}
-          onChange={() => toggleSelection(setSelectedInProgressIds, install.ups_installation_id)}
-        />
-      )
+      render: (install) => {
+        if (!canSelectForBatchAction(install)) return null;
+
+        return (
+          <input
+            type="checkbox"
+            aria-label={`Select in progress UPS ticket ${getUpsTicketLabel(install)}`}
+            checked={selectedInProgressIds.has(install.ups_installation_id)}
+            onClick={(event) => event.stopPropagation()}
+            onChange={() => toggleSelection(setSelectedInProgressIds, install.ups_installation_id)}
+          />
+        );
+      }
     },
     { key: 'ticket', label: 'Ticket #', render: getUpsTicketLabel },
     { key: 'school_name', label: 'School' },
@@ -201,18 +301,54 @@ export default function UpsPage({ onNavigate }) {
     showToast({ type, title, message });
   }
 
+  function canSelectForWarehouse(install) {
+    return install.status === 'scheduled';
+  }
+
+  function canSelectForBatchAction(install) {
+    return canSelectForWarehouse(install) || install.status === 'confirm_ip';
+  }
+
+  function canOpenInProgressRow(install) {
+    return install.status === 'servicing' || install.status === 'confirm_ip';
+  }
+
+  function handleInProgressRowClick(install) {
+    if (install.status === 'servicing') {
+      openFulfillmentModal(install);
+      return;
+    }
+
+    if (install.status === 'confirm_ip') {
+      openIpConfirmModal(install);
+    }
+  }
+
   async function loadUpsInstallations() {
     setLoading(true);
     setLoadFailed(false);
+
+    if (isScreenshotMode) {
+      const screenshotData = getScreenshotOperationsData();
+      setPendingInstalls(screenshotData.upsPending);
+      setInProgressInstalls([...screenshotData.upsScheduled, ...screenshotData.upsServicing]);
+      setCompletedInstalls(screenshotData.upsCompleted);
+      setSelectedPendingIds(new Set());
+      setSelectedInProgressIds(new Set());
+      setLoading(false);
+      return;
+    }
+
     try {
-      const [pending, scheduled, servicing, completed] = await Promise.all([
+      const [pending, scheduled, servicing, confirmIp, completed] = await Promise.all([
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0'),
+        apiRequest('/ups-installations/?status=confirm_ip&limit=1000&offset=0'),
         apiRequest(`/ups-installations/?status=fulfilled&limit=${completedInstallLimit}&offset=0`)
       ]);
       setPendingInstalls(pending || []);
-      setInProgressInstalls([...(scheduled || []), ...(servicing || [])]);
+      setInProgressInstalls([...(scheduled || []), ...(servicing || []), ...(confirmIp || [])]);
       setCompletedInstalls(completed || []);
       setSelectedPendingIds(new Set());
       setSelectedInProgressIds(new Set());
@@ -225,6 +361,23 @@ export default function UpsPage({ onNavigate }) {
   }
 
   async function loadCompletedInstallations(currentSearch) {
+    if (isScreenshotMode) {
+      const search = currentSearch.trim().toLowerCase();
+      const completed = getScreenshotOperationsData().upsCompleted.filter((install) => {
+        if (!search) return true;
+        return [
+          getUpsTicketLabel(install),
+          install.school_name,
+          install.tea_code,
+          install.new_serial_number,
+          install.new_mac_address,
+          install.snmp_ip
+        ].some((value) => String(value || '').toLowerCase().includes(search));
+      });
+      setCompletedInstalls(completed);
+      return;
+    }
+
     try {
       const searchParam = currentSearch.trim() ? `&search=${encodeURIComponent(currentSearch.trim())}` : '';
       const completed = await apiRequest(`/ups-installations/?status=fulfilled&limit=${completedInstallLimit}&offset=0${searchParam}`);
@@ -310,44 +463,11 @@ export default function UpsPage({ onNavigate }) {
   }
 
   function buildScheduleHtmlTable(rows) {
-    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Contact', 'Install Contact #', 'Proposed Install Date', 'Type', 'Equipment'];
-    const bodyRows = rows.map((row) => [
-      row.ticket_number,
-      row.idf || '',
-      row.school_name,
-      row.install_contact || '',
-      row.install_contact_number || '',
-      row.proposed_install_date,
-      row.type || 'Replace',
-      row.equipment
-    ]);
-
-    return `
-      <table border="1" cellspacing="0" cellpadding="6">
-        <thead>
-          <tr>${headers.map((header) => `<th>${escapeTableValue(header)}</th>`).join('')}</tr>
-        </thead>
-        <tbody>
-          ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeTableValue(cell)}</td>`).join('')}</tr>`).join('')}
-        </tbody>
-      </table>
-    `;
+    return buildHtmlTable(scheduleTableColumns, rows);
   }
 
   function buildScheduleTextTable(rows) {
-    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Contact', 'Install Contact #', 'Proposed Install Date', 'Type', 'Equipment'];
-    const bodyRows = rows.map((row) => [
-      row.ticket_number,
-      row.idf || '',
-      row.school_name,
-      row.install_contact || '',
-      row.install_contact_number || '',
-      row.proposed_install_date,
-      row.type || 'Replace',
-      row.equipment
-    ]);
-
-    return [headers, ...bodyRows].map((row) => row.map((cell) => cell || '').join('\t')).join('\n');
+    return buildTextTable(scheduleTableColumns, rows);
   }
 
   function sortScheduleRowsByDate(rows) {
@@ -364,19 +484,19 @@ export default function UpsPage({ onNavigate }) {
 
   function openWarehouseModal() {
     const rows = inProgressInstalls
-      .filter((install) => install.status === 'scheduled' && selectedInProgressIds.has(install.ups_installation_id))
+      .filter((install) => canSelectForWarehouse(install) && selectedInProgressIds.has(install.ups_installation_id))
       .map((install) => ({
         ups_installation_id: install.ups_installation_id,
         ticket_number: getUpsTicketLabel(install),
-        idf: warehouseValue(install.idf),
+        idf: formatTableCell(install.idf),
         school_name: install.school_name,
-        install_date: warehouseValue(install.proposed_install_date),
+        install_date: formatTableCell(install.proposed_install_date),
         type: 'Replace',
         equipment: deriveUpsEquipment(install),
-        ups_serial: 'N/A',
-        ups_po: warehouseValue(install.ups_po),
-        bp_serials: 'N/A',
-        bp_po: warehouseValue(install.bp_po)
+        ups_serial: '',
+        ups_po: formatTableCell(install.ups_po),
+        bp_serials: '',
+        bp_po: formatTableCell(install.bp_po)
       }));
 
     if (rows.length === 0) {
@@ -406,10 +526,11 @@ export default function UpsPage({ onNavigate }) {
     setSelectedInProgressIds((currentIds) => {
       const nextIds = new Set(currentIds);
 
-      if (allVisibleScheduledSelected) {
-        visibleScheduledInProgressIds.forEach((id) => nextIds.delete(id));
+      if (allVisibleWarehouseSelected) {
+        visibleWarehouseSelectableIds.forEach((id) => nextIds.delete(id));
       } else {
-        visibleScheduledInProgressIds.forEach((id) => nextIds.add(id));
+        nextIds.clear();
+        visibleWarehouseSelectableIds.forEach((id) => nextIds.add(id));
       }
 
       return nextIds;
@@ -418,15 +539,7 @@ export default function UpsPage({ onNavigate }) {
 
   function openFulfillmentModal(install) {
     setFulfillmentInstall(install);
-    setFulfillmentForm({
-      new_asset_tag: install.new_asset_tag || '',
-      new_serial_number: install.new_serial_number || '',
-      new_webcard_serial: install.new_webcard_serial || '',
-      new_mac_address: install.new_mac_address || '',
-      snmp_ip: install.snmp_ip || '',
-      new_battery_pack_serial: install.new_battery_pack_serial || '',
-      new_battery_pack_asset_tag: install.new_battery_pack_asset_tag || ''
-    });
+    setFulfillmentForm(buildFulfillmentForm(install));
   }
 
   function closeFulfillmentModal() {
@@ -456,20 +569,190 @@ export default function UpsPage({ onNavigate }) {
       });
       await apiRequest(`/ups-installations/${updatedInstall.ups_installation_id}`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'fulfilled' })
+        body: JSON.stringify({ status: 'confirm_ip' })
       });
-      notify('success', 'UPS fulfillment saved', 'The record moved to Completed.');
+      notify('success', 'UPS fulfillment saved', 'The record moved to Confirm IP.');
       closeFulfillmentModal();
       loadUpsInstallations();
     } catch (error) {
-      notify('error', 'Failed to complete UPS record');
+      notify('error', 'Failed to save UPS fulfillment');
     }
+  }
+
+  function buildFulfillmentForm(install) {
+    return {
+      new_asset_tag: install.new_asset_tag || '',
+      new_serial_number: install.new_serial_number || '',
+      new_webcard_serial: install.new_webcard_serial || '',
+      new_mac_address: install.new_mac_address || '',
+      snmp_ip: install.snmp_ip || '',
+      new_battery_pack_serial: install.new_battery_pack_serial || '',
+      new_battery_pack_asset_tag: install.new_battery_pack_asset_tag || ''
+    };
   }
 
   function normalizeFulfillmentPayload(form) {
     return Object.fromEntries(
       Object.entries(form).map(([key, value]) => [key, value.trim() || null])
     );
+  }
+
+  function openIpConfirmModal(install) {
+    setIpConfirmInstall(install);
+    setCompletingIpConfirm(false);
+    setIpConfirmForm(buildIpConfirmForm(install));
+  }
+
+  function closeIpConfirmModal() {
+    setIpConfirmInstall(null);
+    setIpConfirmForm(emptyIpConfirmForm);
+    setCompletingIpConfirm(false);
+  }
+
+  function buildIpConfirmForm(install) {
+    return {
+      snmp_ip: install.snmp_ip || '',
+      hostname: install.hostname || '',
+      new_mac_address: install.new_mac_address || '',
+      new_webcard_serial: install.new_webcard_serial || '',
+      new_asset_tag: install.new_asset_tag || '',
+      new_serial_number: install.new_serial_number || '',
+      ups_po: install.ups_po || '',
+      new_battery_pack_serial: install.new_battery_pack_serial || '',
+      new_battery_pack_asset_tag: install.new_battery_pack_asset_tag || '',
+      bp_po: install.bp_po || ''
+    };
+  }
+
+  function updateIpConfirmForm(field, value) {
+    setIpConfirmForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function openBatchIpConfirmModal() {
+    const rows = selectedInProgressRows
+      .filter((install) => install.status === 'confirm_ip')
+      .map((install) => ({
+        ...install,
+        form: buildIpConfirmForm(install)
+      }));
+
+    if (rows.length === 0) {
+      notify('warning', 'Select Confirm IP records', 'Choose at least one Confirm IP record before copying the IP response.');
+      return;
+    }
+
+    setBatchIpConfirmRows(rows);
+    setBatchIpConfirmModalOpen(true);
+  }
+
+  function closeBatchIpConfirmModal() {
+    if (batchIpConfirmCopying) return;
+    setBatchIpConfirmRows([]);
+    setBatchIpConfirmModalOpen(false);
+  }
+
+  function updateBatchIpConfirmRow(upsInstallationId, field, value) {
+    setBatchIpConfirmRows((currentRows) =>
+      currentRows.map((row) =>
+        row.ups_installation_id === upsInstallationId
+          ? { ...row, form: { ...row.form, [field]: value } }
+          : row
+      )
+    );
+  }
+
+  function buildIpConfirmPayload(form) {
+    return Object.fromEntries(
+      Object.entries(form).map(([key, value]) => [key, value.trim() || null])
+    );
+  }
+
+  async function saveIpDetails() {
+    if (!ipConfirmInstall) return null;
+
+    const updatedInstall = await apiRequest(`/ups-installations/${ipConfirmInstall.ups_installation_id}`, {
+      method: 'PUT',
+      body: JSON.stringify(buildIpConfirmPayload(ipConfirmForm))
+    });
+    setIpConfirmInstall(updatedInstall);
+    setIpConfirmForm(buildIpConfirmForm(updatedInstall));
+    loadUpsInstallations();
+    return updatedInstall;
+  }
+
+  async function handleCopyIpResponseTable() {
+    if (!ipConfirmInstall) return;
+
+    try {
+      setCompletingIpConfirm(true);
+      const savedInstall = await saveIpDetails();
+      const sourceInstall = savedInstall || { ...ipConfirmInstall, ...buildIpConfirmPayload(ipConfirmForm) };
+      const html = buildIpResponseHtml(sourceInstall);
+      const text = buildIpResponseText(sourceInstall);
+      const now = new Date().toISOString();
+
+      await copyHtmlToClipboard(html, text);
+      const updatedInstall = await apiRequest(`/ups-installations/${sourceInstall.ups_installation_id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ip_response_email_body: text,
+          ip_response_email_created_at: sourceInstall.ip_response_email_created_at || now,
+          ip_response_email_confirmed_at: now,
+          status: 'fulfilled'
+        })
+      });
+      setIpConfirmInstall(updatedInstall);
+      setIpConfirmForm(buildIpConfirmForm(updatedInstall));
+      notify('success', 'IP response copied', 'The record moved to Completed.');
+      closeIpConfirmModal();
+      loadUpsInstallations();
+    } catch (error) {
+      notify('error', 'Failed to copy IP response');
+    } finally {
+      setCompletingIpConfirm(false);
+    }
+  }
+
+  async function handleCopyBatchIpResponseTable() {
+    if (batchIpConfirmRows.length === 0) return;
+
+    try {
+      setBatchIpConfirmCopying(true);
+      const savedRows = await Promise.all(
+        batchIpConfirmRows.map((row) =>
+          apiRequest(`/ups-installations/${row.ups_installation_id}`, {
+            method: 'PUT',
+            body: JSON.stringify(buildIpConfirmPayload(row.form))
+          })
+        )
+      );
+      const html = buildBatchIpResponseHtml(savedRows);
+      const text = buildBatchIpResponseText(savedRows);
+      const now = new Date().toISOString();
+
+      await copyHtmlToClipboard(html, text);
+      await Promise.all(
+        savedRows.map((row) =>
+          apiRequest(`/ups-installations/${row.ups_installation_id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              ip_response_email_body: text,
+              ip_response_email_created_at: row.ip_response_email_created_at || now,
+              ip_response_email_confirmed_at: now,
+              status: 'fulfilled'
+            })
+          })
+        )
+      );
+      notify('success', 'IP response copied', 'Selected records moved to Completed.');
+      setSelectedInProgressIds(new Set());
+      closeBatchIpConfirmModal();
+      loadUpsInstallations();
+    } catch (error) {
+      notify('error', 'Failed to copy IP response');
+    } finally {
+      setBatchIpConfirmCopying(false);
+    }
   }
 
   function openCompletedSummaryModal(install) {
@@ -539,8 +822,8 @@ export default function UpsPage({ onNavigate }) {
     try {
       const normalizedRows = warehouseRows.map((row) => ({
         ...row,
-        ups_po: warehouseValue(row.ups_po),
-        bp_po: warehouseValue(row.bp_po)
+        ups_po: formatTableCell(row.ups_po),
+        bp_po: formatTableCell(row.bp_po)
       }));
 
       await Promise.all(
@@ -576,62 +859,85 @@ export default function UpsPage({ onNavigate }) {
   }
 
   function warehouseValue(value) {
-    const normalized = String(value || '').trim();
-    return normalized || 'N/A';
+    return formatTableCell(value);
   }
 
   function buildWarehouseHtmlTable(rows) {
-    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Date', 'Type', 'Equipment', 'UPS Serial', 'UPS PO', 'BP Serial(s)', 'BP PO'];
-    const bodyRows = rows.map((row) => [
-      row.ticket_number,
-      row.idf,
-      row.school_name,
-      row.install_date,
-      row.type,
-      row.equipment,
-      row.ups_serial,
-      row.ups_po,
-      row.bp_serials,
-      row.bp_po
-    ]);
-
-    return `
-      <table border="1" cellspacing="0" cellpadding="6">
-        <thead>
-          <tr>${headers.map((header) => `<th>${escapeTableValue(header)}</th>`).join('')}</tr>
-        </thead>
-        <tbody>
-          ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${escapeTableValue(warehouseValue(cell))}</td>`).join('')}</tr>`).join('')}
-        </tbody>
-      </table>
-    `;
+    return buildHtmlTable(warehouseTableColumns, rows);
   }
 
   function buildWarehouseTextTable(rows) {
-    const headers = ['Ticket #', 'IDF', 'School Name', 'Install Date', 'Type', 'Equipment', 'UPS Serial', 'UPS PO', 'BP Serial(s)', 'BP PO'];
-    const bodyRows = rows.map((row) => [
-      row.ticket_number,
-      row.idf,
-      row.school_name,
-      row.install_date,
-      row.type,
-      row.equipment,
-      row.ups_serial,
-      row.ups_po,
-      row.bp_serials,
-      row.bp_po
-    ]);
-
-    return [headers, ...bodyRows].map((row) => row.map((cell) => warehouseValue(cell)).join('\t')).join('\n');
+    return buildTextTable(warehouseTableColumns, rows);
   }
 
-  function escapeTableValue(value) {
-    return String(value || '')
+  function escapeTableCell(value) {
+    return formatTableCell(value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function getTableCell(row, column) {
+    return column.value(row);
+  }
+
+  function getTableHeaderHtml(column) {
+    if (column.htmlLabel) return column.htmlLabel;
+    return escapeTableCell(column.label);
+  }
+
+  function buildHtmlTable(columns, rows) {
+    const tableStyle = 'border-collapse: collapse; font-family: Arial, sans-serif; font-size: 13px;';
+    const headerStyle = 'border: 1px solid #000; padding: 6px 10px; font-weight: bold; text-align: center; vertical-align: middle; white-space: nowrap; background-color: #111827; color: #ffffff;';
+    const bodyStyle = 'border: 1px solid #000; padding: 4px 8px; text-align: left; vertical-align: middle; white-space: nowrap; background-color: #ffffff; color: #000000; font-weight: normal;';
+
+    return `
+      <table style="${tableStyle}">
+        <thead>
+          <tr>${columns.map((column) => `<th style="${headerStyle}">${getTableHeaderHtml(column)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `<tr>${columns.map((column) => `<td style="${bodyStyle}">${escapeTableCell(getTableCell(row, column))}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function buildTextTable(columns, rows) {
+    const headerRow = columns.map((column) => column.label);
+    const bodyRows = rows.map((row) => columns.map((column) => formatTableCell(getTableCell(row, column))));
+    return [headerRow, ...bodyRows].map((row) => row.join('\t')).join('\n');
+  }
+
+  function buildIpResponseHtml(install) {
+    return buildBatchIpResponseHtml([install]);
+  }
+
+  function buildIpResponseText(install) {
+    return buildBatchIpResponseText([install]);
+  }
+
+  function getIpResponseHeading(rows) {
+    if (rows.length === 1) return `1 UPS Installed at ${formatTableCell(rows[0].school_name)}`;
+    return `${rows.length} UPS Installed`;
+  }
+
+  function buildBatchIpResponseHtml(rows) {
+    const headingStyle = 'margin: 0 0 8px 0; font-family: Arial, sans-serif; font-size: 13px; color: #000000; background: transparent;';
+    return [
+      `<p style="${headingStyle}"><strong>${escapeTableCell(getIpResponseHeading(rows))}</strong></p>`,
+      buildHtmlTable(ipResponseTableColumns, rows)
+    ].join('');
+  }
+
+  function buildBatchIpResponseText(rows) {
+    return [
+      getIpResponseHeading(rows),
+      '',
+      buildTextTable(ipResponseTableColumns, rows)
+    ].join('\n');
   }
 
   function handleDashboardClick() {
@@ -670,7 +976,7 @@ export default function UpsPage({ onNavigate }) {
           <p className="mutedText">Fulfilled UPS records.</p>
         </SectionCard>
         <SectionCard title="Selected">
-          <strong className={styles.summaryValue}>{selectedPendingIds.size + selectedInProgressIds.size}</strong>
+          <strong className={styles.summaryValue}>{selectedPendingIds.size + selectedInProgressRows.length}</strong>
           <p className="mutedText">Selected for schedule, warehouse, or completion actions.</p>
         </SectionCard>
       </div>
@@ -697,7 +1003,7 @@ export default function UpsPage({ onNavigate }) {
           ) : loadFailed ? (
             <RetryState onRetry={loadUpsInstallations} text="Failed to load pending UPS installs." />
           ) : visiblePendingInstalls.length > 0 ? (
-            <DataTable columns={pendingColumns} rows={visiblePendingInstalls} getRowKey={(install) => install.ups_installation_id} />
+            <DataTable className={styles.upsTable} columns={pendingColumns} rows={visiblePendingInstalls} getRowKey={(install) => install.ups_installation_id} />
           ) : (
             <EmptyState title="No pending UPS installs" description="Create a UPS ticket to populate this queue." />
           )}
@@ -705,21 +1011,29 @@ export default function UpsPage({ onNavigate }) {
 
         <SectionCard
           title="In Progress"
-          description="Select scheduled records to copy the warehouse table. Servicing rows open fulfillment and move to Completed from the modal."
+          description="Select scheduled records to copy the warehouse table. Servicing rows open fulfillment; Confirm IP rows open IP confirmation."
           spotlight
           spotlightMode="interactive"
           actions={
             <div className={styles.sectionActions}>
-              <SelectionHint count={selectedInProgressIds.size} label="in progress selected" />
-              {visibleScheduledInProgressIds.length > 0 && (
+              <SelectionHint count={selectedInProgressRows.length} label="in progress selected" />
+              {visibleWarehouseSelectableIds.length > 0 && (
                 <button type="button" className="secondaryButton" onClick={handleToggleVisibleScheduledSelection}>
-                  {allVisibleScheduledSelected ? 'Clear All' : 'Select All'}
+                  {allVisibleWarehouseSelected ? 'Clear All' : 'Select All'}
                 </button>
               )}
-              {selectedScheduledInProgressCount > 0 && (
+              {allSelectedWarehouseReady && (
                 <button type="button" className="primaryButton" onClick={openWarehouseModal}>
                   Copy Warehouse Table
                 </button>
+              )}
+              {allSelectedConfirmIp && (
+                <button type="button" className="primaryButton" onClick={openBatchIpConfirmModal}>
+                  Copy IP Response
+                </button>
+              )}
+              {hasMixedSelectedStatuses && (
+                <span className="mutedText">Select rows with the same status to perform a batch action.</span>
               )}
             </div>
           }
@@ -730,11 +1044,12 @@ export default function UpsPage({ onNavigate }) {
             <RetryState onRetry={loadUpsInstallations} text="Failed to load in-progress UPS installs." />
           ) : visibleInProgressInstalls.length > 0 ? (
             <DataTable
+              className={styles.upsTable}
               columns={inProgressColumns}
               rows={visibleInProgressInstalls}
               getRowKey={(install) => install.ups_installation_id}
-              onRowClick={openFulfillmentModal}
-              canClickRow={(install) => install.status === 'servicing'}
+              onRowClick={handleInProgressRowClick}
+              canClickRow={canOpenInProgressRow}
             />
           ) : (
             <EmptyState title="No in-progress UPS installs" description="Scheduled UPS records will appear here." />
@@ -761,6 +1076,7 @@ export default function UpsPage({ onNavigate }) {
             <RetryState onRetry={loadUpsInstallations} text="Failed to load completed UPS installs." />
           ) : visibleCompletedInstalls.length > 0 ? (
             <DataTable
+              className={styles.upsTable}
               columns={completedColumns}
               rows={visibleCompletedInstalls}
               getRowKey={(install) => install.ups_installation_id}
@@ -912,10 +1228,133 @@ export default function UpsPage({ onNavigate }) {
               </label>
             </div>
             <div className={styles.actions}>
-              <button type="submit" className="successButton">Move to Completed</button>
+              <button type="submit" className="primaryButton">Save Fulfillment Details</button>
               <button type="button" className="secondaryButton" onClick={closeFulfillmentModal}>Cancel</button>
             </div>
           </SpotlightPanel>
+        </Modal>
+      )}
+
+      {ipConfirmInstall && (
+        <Modal title="Confirm UPS IP" onClose={closeIpConfirmModal}>
+          <div className={styles.summaryDetails}>
+            <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(ipConfirmInstall)} />
+            <ReadOnlyField label="School" value={ipConfirmInstall.school_name} />
+            <ReadOnlyField label="IDF" value={ipConfirmInstall.idf || '-'} />
+            <ReadOnlyField label="Install Date" value={ipConfirmInstall.proposed_install_date || '-'} />
+            <ReadOnlyField label="Status" value={upsStatusLabelMap[ipConfirmInstall.status] || ipConfirmInstall.status} />
+          </div>
+
+          <SpotlightPanel as="section" className={styles.serviceForm} mode="interactive">
+            <div className={styles.serviceGrid}>
+              <label>
+                SNMP IP
+                <input value={ipConfirmForm.snmp_ip} onChange={(event) => updateIpConfirmForm('snmp_ip', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Device Name / Hostname
+                <input value={ipConfirmForm.hostname} onChange={(event) => updateIpConfirmForm('hostname', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                SNMP MAC
+                <input value={ipConfirmForm.new_mac_address} onChange={(event) => updateIpConfirmForm('new_mac_address', event.target.value)} maxLength={32} />
+              </label>
+              <label>
+                SNMPWEBCARD SN
+                <input value={ipConfirmForm.new_webcard_serial} onChange={(event) => updateIpConfirmForm('new_webcard_serial', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Replacement Asset Tag #
+                <input value={ipConfirmForm.new_asset_tag} onChange={(event) => updateIpConfirmForm('new_asset_tag', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                UPS SN
+                <input value={ipConfirmForm.new_serial_number} onChange={(event) => updateIpConfirmForm('new_serial_number', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                UPS PO
+                <input value={ipConfirmForm.ups_po} onChange={(event) => updateIpConfirmForm('ups_po', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                BP SN
+                <input value={ipConfirmForm.new_battery_pack_serial} onChange={(event) => updateIpConfirmForm('new_battery_pack_serial', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                BP Asset Tag #
+                <input value={ipConfirmForm.new_battery_pack_asset_tag} onChange={(event) => updateIpConfirmForm('new_battery_pack_asset_tag', event.target.value)} maxLength={100} />
+              </label>
+              <label>
+                BP PO
+                <input value={ipConfirmForm.bp_po} onChange={(event) => updateIpConfirmForm('bp_po', event.target.value)} maxLength={100} />
+              </label>
+            </div>
+            <div className={styles.actions}>
+              <button type="button" className="primaryButton" onClick={handleCopyIpResponseTable} disabled={completingIpConfirm}>
+                {completingIpConfirm ? 'Copying...' : 'Copy IP Response'}
+              </button>
+              <button type="button" className="secondaryButton" onClick={closeIpConfirmModal}>Cancel</button>
+            </div>
+          </SpotlightPanel>
+        </Modal>
+      )}
+
+      {batchIpConfirmModalOpen && (
+        <Modal title="Confirm UPS IP Response" onClose={closeBatchIpConfirmModal}>
+          <p className="mutedText">Review IP details, then copy the response table for Outlook. Selected records will move to Completed after copy.</p>
+          <div className={styles.scheduleRows}>
+            {batchIpConfirmRows.map((row) => (
+              <SpotlightPanel key={row.ups_installation_id} className={styles.serviceForm} mode="interactive">
+                <div className={styles.summaryDetails}>
+                  <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(row)} />
+                  <ReadOnlyField label="School" value={row.school_name} />
+                </div>
+                <div className={styles.serviceGrid}>
+                  <label>
+                    Device Name / Hostname
+                    <input value={row.form.hostname} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'hostname', event.target.value)} maxLength={100} />
+                  </label>
+                  <label>
+                    SNMP IP
+                    <input value={row.form.snmp_ip} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'snmp_ip', event.target.value)} maxLength={100} />
+                  </label>
+                  <label>
+                    SNMP MAC
+                    <input value={row.form.new_mac_address} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'new_mac_address', event.target.value)} maxLength={32} />
+                  </label>
+                  <label>
+                    Replacement Asset Tag #
+                    <input value={row.form.new_asset_tag} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'new_asset_tag', event.target.value)} maxLength={100} />
+                  </label>
+                  <label>
+                    UPS SN
+                    <input value={row.form.new_serial_number} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'new_serial_number', event.target.value)} maxLength={100} />
+                  </label>
+                  <label>
+                    UPS PO
+                    <input value={row.form.ups_po} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'ups_po', event.target.value)} maxLength={100} />
+                  </label>
+                  <label>
+                    BP SN
+                    <input value={row.form.new_battery_pack_serial} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'new_battery_pack_serial', event.target.value)} maxLength={100} />
+                  </label>
+                  <label>
+                    BP Asset Tag #
+                    <input value={row.form.new_battery_pack_asset_tag} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'new_battery_pack_asset_tag', event.target.value)} maxLength={100} />
+                  </label>
+                  <label>
+                    BP PO
+                    <input value={row.form.bp_po} onChange={(event) => updateBatchIpConfirmRow(row.ups_installation_id, 'bp_po', event.target.value)} maxLength={100} />
+                  </label>
+                </div>
+              </SpotlightPanel>
+            ))}
+          </div>
+          <div className={styles.actions}>
+            <button type="button" className="primaryButton" onClick={handleCopyBatchIpResponseTable} disabled={batchIpConfirmCopying}>
+              {batchIpConfirmCopying ? 'Copying...' : 'Copy IP Response'}
+            </button>
+            <button type="button" className="secondaryButton" onClick={closeBatchIpConfirmModal} disabled={batchIpConfirmCopying}>Cancel</button>
+          </div>
         </Modal>
       )}
 
@@ -941,7 +1380,7 @@ export default function UpsPage({ onNavigate }) {
                 <ReadOnlyGroup title="Ticket / Location">
                   <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(completedSummaryInstall)} />
                   <ReadOnlyField label="School" value={completedSummaryInstall.school_name} />
-                  <ReadOnlyField label="TEA Code" value={completedSummaryInstall.tea_code} />
+                  <ReadOnlyField label="Identifier" value={completedSummaryInstall.tea_code} />
                   <ReadOnlyField label="MDF/IDF" value={completedSummaryInstall.idf} />
                   <ReadOnlyField label="Install Date" value={completedSummaryInstall.proposed_install_date} />
                   <ReadOnlyField label="Equipment" value={deriveUpsEquipment(completedSummaryInstall)} />

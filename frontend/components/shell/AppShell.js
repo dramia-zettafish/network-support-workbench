@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { networkModules } from '../../lib/networkRoutes';
+import { appDisplayName } from '../../lib/publicConfig';
 import styles from './AppShell.module.css';
 
 export default function AppShell({ children }) {
@@ -59,7 +60,7 @@ export default function AppShell({ children }) {
         <div className={styles.topbarMain}>
           <div className={styles.brandCluster}>
             <Link href="/" className={styles.brand}>
-              Network Vcode
+              {appDisplayName}
             </Link>
             <span className={styles.envBadge}>{envLabel}</span>
           </div>

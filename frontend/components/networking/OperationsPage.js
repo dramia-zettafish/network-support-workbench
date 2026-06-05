@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
 import { moduleHref } from '../../lib/networkRoutes';
+import { isScreenshotMode } from '../../lib/publicConfig';
+import { getScreenshotOperationsData } from '../../lib/screenshotData';
 import { deriveUpsEquipment, upsStatusLabelMap, upsStatusToneMap } from '../../lib/upsHelpers';
 import DataTable from '../ui/DataTable';
 import EmptyState from '../ui/EmptyState';
@@ -51,6 +53,7 @@ export default function OperationsPage({ onNavigate }) {
   const [upsPending, setUpsPending] = useState([]);
   const [upsScheduled, setUpsScheduled] = useState([]);
   const [upsServicing, setUpsServicing] = useState([]);
+  const [upsConfirmIp, setUpsConfirmIp] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -79,7 +82,7 @@ export default function OperationsPage({ onNavigate }) {
     const weekRange = getCurrentWorkWeekRange();
     const todayKey = toDateKey(new Date());
 
-    return [...upsScheduled, ...upsServicing]
+    return [...upsScheduled, ...upsServicing, ...upsConfirmIp]
       .filter((install) => isDateInCurrentWorkWeek(install.proposed_install_date, weekRange))
       .sort((a, b) => String(a.proposed_install_date).localeCompare(String(b.proposed_install_date)))
       .map((install) => ({
@@ -92,15 +95,26 @@ export default function OperationsPage({ onNavigate }) {
         status: upsStatusLabelMap[install.status] || install.status,
         tone: upsStatusToneMap[install.status] || 'neutral'
       }));
-  }, [upsScheduled, upsServicing]);
+  }, [upsScheduled, upsServicing, upsConfirmIp]);
 
   const openTicketCount = tickets.filter((ticket) => ticket.status === 'open').length;
   const onHoldTicketCount = tickets.filter((ticket) => ticket.status === 'on_hold').length;
-  const activeUpsCount = upsScheduled.length + upsServicing.length;
+  const activeUpsCount = upsScheduled.length + upsServicing.length + upsConfirmIp.length;
 
   async function loadOperationsData() {
     setLoading(true);
     setLoadFailed(false);
+
+    if (isScreenshotMode) {
+      const screenshotData = getScreenshotOperationsData();
+      setTickets(screenshotData.tickets);
+      setUpsPending(screenshotData.upsPending);
+      setUpsScheduled(screenshotData.upsScheduled);
+      setUpsServicing(screenshotData.upsServicing);
+      setUpsConfirmIp([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       const [
@@ -108,19 +122,22 @@ export default function OperationsPage({ onNavigate }) {
         onHoldTickets,
         pendingUps,
         scheduledUps,
-        servicingUps
+        servicingUps,
+        confirmIpUps
       ] = await Promise.all([
         apiRequest('/tickets/?status=open&limit=1000&offset=0'),
         apiRequest('/tickets/?status=on_hold&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=intake&limit=1000&offset=0'),
         apiRequest('/ups-installations/?status=scheduled&limit=1000&offset=0'),
-        apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0')
+        apiRequest('/ups-installations/?status=servicing&limit=1000&offset=0'),
+        apiRequest('/ups-installations/?status=confirm_ip&limit=1000&offset=0')
       ]);
 
       setTickets([...(openTickets || []), ...(onHoldTickets || [])]);
       setUpsPending(pendingUps || []);
       setUpsScheduled(scheduledUps || []);
       setUpsServicing(servicingUps || []);
+      setUpsConfirmIp(confirmIpUps || []);
     } catch (error) {
       setLoadFailed(true);
       showToast({

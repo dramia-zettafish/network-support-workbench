@@ -51,6 +51,22 @@
   gap: 1.15rem;
 }
 
+.upsTable input[type="checkbox"] {
+  accent-color: #c084fc;
+  cursor: pointer;
+}
+
+.upsTable input[type="checkbox"]:focus:not(:focus-visible) {
+  box-shadow: none;
+  outline: none;
+}
+
+.upsTable input[type="checkbox"]:focus-visible {
+  box-shadow: none;
+  outline: 2px solid rgba(96, 165, 250, 0.85);
+  outline-offset: 3px;
+}
+
 .sectionActions {
   align-items: center;
   display: flex;

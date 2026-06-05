@@ -1,13 +1,13 @@
 import EmptyState from './EmptyState';
 import styles from './DataTable.module.css';
 
-export default function DataTable({ columns, rows, getRowKey, emptyTitle, emptyDescription, onRowClick, canClickRow }) {
+export default function DataTable({ columns, rows, getRowKey, emptyTitle, emptyDescription, onRowClick, canClickRow, className = '' }) {
   if (!rows || rows.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} />;
   }
 
   return (
-    <div className={styles.tableWrap}>
+    <div className={`${styles.tableWrap} ${className}`}>
       <table className={styles.table}>
         <thead>
           <tr>

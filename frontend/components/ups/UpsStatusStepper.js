@@ -5,6 +5,7 @@ const steps = [
   { status: 'intake', label: 'Pending' },
   { status: 'scheduled', label: 'Scheduled' },
   { status: 'servicing', label: 'Servicing' },
+  { status: 'confirm_ip', label: 'Confirm IP' },
   { status: 'fulfilled', label: 'Fulfilled' }
 ];
 

@@ -1,9 +1,10 @@
 import './globals.css';
 import AppShell from '../components/shell/AppShell';
 import { ToastProvider } from '../components/ui/ToastProvider';
+import { appDisplayName } from '../lib/publicConfig';
 
 export const metadata = {
-  title: 'Network Vcode',
+  title: appDisplayName,
   description: 'Ticket and UPS workflow tracker'
 };
 

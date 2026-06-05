@@ -1,42 +1,51 @@
 import { query, transaction } from './db';
-import { optionalEnum, optionalString, rejectUnknownFields, requiredEnum, requiredInteger, requiredString } from './serverValidation';
+import { optionalEnum, optionalString, rejectUnknownFields, requiredEnum, requiredInteger, requiredString, validationError } from './serverValidation';
 
-export const upsStatuses = ['intake', 'servicing', 'scheduled', 'fulfilled'];
+export const upsStatuses = ['intake', 'servicing', 'scheduled', 'confirm_ip', 'fulfilled'];
 const scheduleDays = ['mon', 'tue', 'wed', 'thu'];
 
-const upsColumns = `
-  ups_installation_id,
-  ticket_number,
-  external_ticket_number,
-  school_name,
-  tea_code,
-  created_date,
-  status,
-  serial_number,
-  defective_battery_pack_serial,
-  idf,
-  asset_tag,
-  new_serial_number,
-  new_webcard_serial,
-  new_asset_tag,
-  mac_address,
-  new_mac_address,
-  hostname,
-  new_battery_pack_asset_tag,
-  new_battery_pack_serial,
-  model,
-  room_number,
-  installed_date,
-  installed_by,
-  notes,
-  snmp_ip,
-  battery_pack_1_asset_tag,
-  ups_po,
-  bp_po,
-  proposed_install_date,
-  approved_install_date,
-  install_contact,
-  install_contact_number
+const upsColumnNames = [
+  'ups_installation_id',
+  'ticket_number',
+  'external_ticket_number',
+  'school_name',
+  'tea_code',
+  'created_date',
+  'status',
+  'serial_number',
+  'defective_battery_pack_serial',
+  'idf',
+  'asset_tag',
+  'new_serial_number',
+  'new_webcard_serial',
+  'new_asset_tag',
+  'mac_address',
+  'new_mac_address',
+  'hostname',
+  'new_battery_pack_asset_tag',
+  'new_battery_pack_serial',
+  'model',
+  'room_number',
+  'installed_date',
+  'installed_by',
+  'notes',
+  'snmp_ip',
+  'battery_pack_1_asset_tag',
+  'ups_po',
+  'bp_po',
+  'proposed_install_date',
+  'approved_install_date',
+  'install_contact',
+  'install_contact_number',
+  'ip_response_email_body',
+  'ip_response_email_created_at',
+  'ip_response_email_confirmed_at'
+];
+
+const upsColumns = upsColumnNames.join(',\n  ');
+
+const qualifiedUpsColumns = `
+  ${upsColumnNames.map((column) => `ups.${column}`).join(',\n  ')}
 `;
 
 const updateFields = [
@@ -65,7 +74,10 @@ const updateFields = [
   'proposed_install_date',
   'approved_install_date',
   'install_contact',
-  'install_contact_number'
+  'install_contact_number',
+  'ip_response_email_body',
+  'ip_response_email_created_at',
+  'ip_response_email_confirmed_at'
 ];
 
 const fieldMaxLengths = {
@@ -93,50 +105,57 @@ const fieldMaxLengths = {
   install_contact_number: 20
 };
 
+const activeUpsStatuses = ['intake', 'scheduled', 'servicing', 'confirm_ip'];
+
 export async function listUpsInstallations({ status, search, limit, offset }) {
   const where = [];
   const params = [];
 
   if (status) {
-    where.push(`status = $${params.length + 1}`);
+    where.push(`ups.status = $${params.length + 1}`);
     params.push(requiredEnum(status, 'status', upsStatuses));
+
+    if (activeUpsStatuses.includes(status)) {
+      where.push(`(ticket.ticket_number IS NULL OR ticket.status <> 'on_hold')`);
+    }
   }
 
   if (search) {
     params.push(`%${optionalString(search, 'search', 100)}%`);
     where.push(`
       CONCAT_WS(' ',
-        ticket_number::text,
-        external_ticket_number,
-        school_name,
-        tea_code::text,
-        created_date,
-        status::text,
-        serial_number,
-        defective_battery_pack_serial,
-        idf,
-        asset_tag,
-        new_serial_number,
-        new_webcard_serial,
-        new_asset_tag,
-        mac_address,
-        new_mac_address,
-        hostname,
-        new_battery_pack_asset_tag,
-        new_battery_pack_serial,
-        model,
-        room_number,
-        installed_date,
-        installed_by,
-        notes,
-        snmp_ip,
-        battery_pack_1_asset_tag,
-        ups_po,
-        bp_po,
-        proposed_install_date,
-        approved_install_date,
-        install_contact,
-        install_contact_number
+        ups.ticket_number::text,
+        ups.external_ticket_number,
+        ups.school_name,
+        ups.tea_code::text,
+        ups.created_date,
+        ups.status::text,
+        ups.serial_number,
+        ups.defective_battery_pack_serial,
+        ups.idf,
+        ups.asset_tag,
+        ups.new_serial_number,
+        ups.new_webcard_serial,
+        ups.new_asset_tag,
+        ups.mac_address,
+        ups.new_mac_address,
+        ups.hostname,
+        ups.new_battery_pack_asset_tag,
+        ups.new_battery_pack_serial,
+        ups.model,
+        ups.room_number,
+        ups.installed_date,
+        ups.installed_by,
+        ups.notes,
+        ups.snmp_ip,
+        ups.battery_pack_1_asset_tag,
+        ups.ups_po,
+        ups.bp_po,
+        ups.proposed_install_date,
+        ups.approved_install_date,
+        ups.install_contact,
+        ups.install_contact_number,
+        ups.ip_response_email_body
       ) ILIKE $${params.length}
     `);
   }
@@ -144,10 +163,11 @@ export async function listUpsInstallations({ status, search, limit, offset }) {
   params.push(limit, offset);
   const result = await query(
     `
-      SELECT ${upsColumns}
-      FROM ups_installations
+      SELECT ${qualifiedUpsColumns}
+      FROM ups_installations ups
+      LEFT JOIN tickets ticket ON ticket.ticket_number = ups.ticket_number
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-      ORDER BY ups_installation_id DESC
+      ORDER BY ups.ups_installation_id DESC
       LIMIT $${params.length - 1}
       OFFSET $${params.length}
     `,
@@ -268,6 +288,17 @@ function updateScheduleRows(rows) {
 async function updateUpsById(upsInstallationId, updates) {
   if (Object.keys(updates).length === 0) {
     return getUpsOrThrow(upsInstallationId);
+  }
+
+  if (updates.status === 'fulfilled') {
+    const current = await getUpsOrThrow(upsInstallationId);
+    const hasConfirmedIpResponse = Boolean(updates.ip_response_email_confirmed_at || current.ip_response_email_confirmed_at);
+    if (!hasConfirmedIpResponse) {
+      throw validationError('UPS IP response email must be confirmed before completion');
+    }
+    if (current.status !== 'confirm_ip' && current.status !== 'fulfilled') {
+      throw validationError('UPS must be in Confirm IP before completion');
+    }
   }
 
   const assignments = [];

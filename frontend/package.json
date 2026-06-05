@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
+    "demo:screenshots": "NEXT_PUBLIC_SCREENSHOT_MODE=true NEXT_PUBLIC_NETWORK_ENV_LABEL=screenshot next dev --webpack --hostname 0.0.0.0 --port 4005",
     "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0"
   },
