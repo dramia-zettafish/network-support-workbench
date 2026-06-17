@@ -32,7 +32,9 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'upsinstallstatus') THEN
-    CREATE TYPE upsinstallstatus AS ENUM ('intake', 'servicing', 'scheduled', 'fulfilled');
+    CREATE TYPE upsinstallstatus AS ENUM ('intake', 'servicing', 'scheduled', 'confirm_ip', 'fulfilled');
+  ELSE
+    ALTER TYPE upsinstallstatus ADD VALUE IF NOT EXISTS 'confirm_ip';
   END IF;
 END $$;
 
@@ -187,6 +189,7 @@ CREATE TABLE IF NOT EXISTS ups_installations (
   installed_by VARCHAR(100),
   notes VARCHAR(1000),
   snmp_ip VARCHAR(100),
+  previous_snmp_ip VARCHAR(100),
   battery_pack_1_asset_tag VARCHAR(100),
   ups_po VARCHAR(100),
   bp_po VARCHAR(100),
@@ -194,6 +197,9 @@ CREATE TABLE IF NOT EXISTS ups_installations (
   approved_install_date TEXT,
   install_contact VARCHAR(255),
   install_contact_number VARCHAR(20),
+  ip_response_email_body TEXT,
+  ip_response_email_created_at TIMESTAMPTZ,
+  ip_response_email_confirmed_at TIMESTAMPTZ,
 
   CONSTRAINT ck_ups_installations_tea_code_3_digits CHECK (tea_code >= 0 AND tea_code <= 999),
   CONSTRAINT ck_ups_installations_external_ticket_number_len CHECK (

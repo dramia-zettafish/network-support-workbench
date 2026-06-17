@@ -6,7 +6,6 @@ const allowedFields = [
   'new_serial_number',
   'new_webcard_serial',
   'new_mac_address',
-  'snmp_ip',
   'new_battery_pack_serial',
   'new_battery_pack_asset_tag',
   'battery_pack_1_asset_tag'

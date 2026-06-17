@@ -116,6 +116,19 @@ Invoke-WebRequest -UseBasicParsing "http://localhost:8080/api/tickets?limit=1&of
 
 Both requests should return HTTP `200` when the stack is healthy.
 
+## Screenshot Demo Mode
+
+For public-safe Dashboard and UPS screenshots, run the frontend screenshot mode:
+
+```bash
+cd frontend
+npm run demo:screenshots
+```
+
+Open `http://localhost:4005/` for the Dashboard and `http://localhost:4005/ups` for UPS. This mode is enabled by `NEXT_PUBLIC_SCREENSHOT_MODE=true`, uses `Network Support Workbench` as the visible app name, and swaps only the Dashboard and UPS pages to the safe fake data in `frontend/lib/screenshotData.js`.
+
+Keep this mode narrow: do not use it as a full demo app, database seed, or replacement for normal development data. Normal development behavior stays database-backed unless the screenshot flag is enabled.
+
 ## API Surface
 
 The Next.js API layer exposes routes under `/api/*`, including:

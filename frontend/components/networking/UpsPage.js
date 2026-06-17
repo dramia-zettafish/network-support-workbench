@@ -24,7 +24,6 @@ const emptyFulfillmentForm = {
   new_serial_number: '',
   new_webcard_serial: '',
   new_mac_address: '',
-  snmp_ip: '',
   new_battery_pack_serial: '',
   new_battery_pack_asset_tag: ''
 };
@@ -52,6 +51,7 @@ const completedEditableFields = [
   ['new_webcard_serial', 'SNMPWEBCARD SN'],
   ['new_mac_address', 'Replacement MAC'],
   ['snmp_ip', 'SNMP IP'],
+  ['previous_snmp_ip', 'Previous SNMP IP'],
   ['new_battery_pack_serial', 'BP SN'],
   ['new_battery_pack_asset_tag', 'BP Asset Tag #'],
   ['ups_po', 'UPS PO'],
@@ -95,8 +95,8 @@ const warehouseTableColumns = [
   { label: 'Equipment', value: (row) => row.equipment },
   { label: 'UPS Serial', value: (row) => row.ups_serial },
   { label: 'UPS PO', value: (row) => row.ups_po },
-  { label: 'BP Serial(s)', value: (row) => row.bp_serials },
-  { label: 'BP PO', value: (row) => row.bp_po }
+  { label: 'BP Serial(s)', value: (row) => row.bp_serials, optional: true },
+  { label: 'BP PO', value: (row) => row.bp_po, optional: true }
 ];
 
 const ipResponseTableColumns = [
@@ -109,13 +109,27 @@ const ipResponseTableColumns = [
   { label: 'Serial', value: (row) => formatIpResponseCell(row.new_serial_number) },
   { label: 'Mac Add', value: (row) => formatIpResponseCell(row.new_mac_address) },
   { label: 'UPS PO#', value: (row) => formatIpResponseCell(row.ups_po) },
-  { label: 'PB SN', value: (row) => formatIpResponseCell(row.new_battery_pack_serial) },
-  { label: 'BP Asset tag', value: (row) => formatIpResponseCell(row.new_battery_pack_asset_tag) },
-  { label: 'BP PO#', value: (row) => formatIpResponseCell(row.bp_po) }
+  { label: 'PB SN', value: (row) => formatIpResponseCell(row.new_battery_pack_serial), optional: true, optionalValue: (row) => row.new_battery_pack_serial },
+  { label: 'BP Asset tag', value: (row) => formatIpResponseCell(row.new_battery_pack_asset_tag), optional: true, optionalValue: (row) => row.new_battery_pack_asset_tag },
+  { label: 'BP PO#', value: (row) => formatIpResponseCell(row.bp_po), optional: true, optionalValue: (row) => row.bp_po }
 ];
 
 function formatIpResponseCell(value) {
   return formatTableCell(value) || 'N/A';
+}
+
+function getPreviousSnmpIp(install) {
+  return formatTableCell(install?.previous_snmp_ip) || formatTableCell(install?.snmp_ip) || null;
+}
+
+function getIpConfirmationResetFields(install) {
+  return {
+    snmp_ip: null,
+    previous_snmp_ip: formatTableCell(install?.snmp_ip) || formatTableCell(install?.previous_snmp_ip) || null,
+    ip_response_email_body: null,
+    ip_response_email_created_at: null,
+    ip_response_email_confirmed_at: null
+  };
 }
 
 function getNextMondayIsoDate() {
@@ -493,6 +507,8 @@ export default function UpsPage({ onNavigate }) {
         install_date: formatTableCell(install.proposed_install_date),
         type: 'Replace',
         equipment: deriveUpsEquipment(install),
+        snmp_ip: install.snmp_ip,
+        previous_snmp_ip: install.previous_snmp_ip,
         ups_serial: '',
         ups_po: formatTableCell(install.ups_po),
         bp_serials: '',
@@ -569,7 +585,10 @@ export default function UpsPage({ onNavigate }) {
       });
       await apiRequest(`/ups-installations/${updatedInstall.ups_installation_id}`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'confirm_ip' })
+        body: JSON.stringify({
+          status: 'confirm_ip',
+          ...getIpConfirmationResetFields(updatedInstall)
+        })
       });
       notify('success', 'UPS fulfillment saved', 'The record moved to Confirm IP.');
       closeFulfillmentModal();
@@ -585,7 +604,6 @@ export default function UpsPage({ onNavigate }) {
       new_serial_number: install.new_serial_number || '',
       new_webcard_serial: install.new_webcard_serial || '',
       new_mac_address: install.new_mac_address || '',
-      snmp_ip: install.snmp_ip || '',
       new_battery_pack_serial: install.new_battery_pack_serial || '',
       new_battery_pack_asset_tag: install.new_battery_pack_asset_tag || ''
     };
@@ -611,7 +629,7 @@ export default function UpsPage({ onNavigate }) {
 
   function buildIpConfirmForm(install) {
     return {
-      snmp_ip: install.snmp_ip || '',
+      snmp_ip: '',
       hostname: install.hostname || '',
       new_mac_address: install.new_mac_address || '',
       new_webcard_serial: install.new_webcard_serial || '',
@@ -661,10 +679,12 @@ export default function UpsPage({ onNavigate }) {
     );
   }
 
-  function buildIpConfirmPayload(form) {
-    return Object.fromEntries(
+  function buildIpConfirmPayload(form, sourceInstall) {
+    const payload = Object.fromEntries(
       Object.entries(form).map(([key, value]) => [key, value.trim() || null])
     );
+    payload.previous_snmp_ip = getPreviousSnmpIp(sourceInstall);
+    return payload;
   }
 
   async function saveIpDetails() {
@@ -672,7 +692,7 @@ export default function UpsPage({ onNavigate }) {
 
     const updatedInstall = await apiRequest(`/ups-installations/${ipConfirmInstall.ups_installation_id}`, {
       method: 'PUT',
-      body: JSON.stringify(buildIpConfirmPayload(ipConfirmForm))
+      body: JSON.stringify(buildIpConfirmPayload(ipConfirmForm, ipConfirmInstall))
     });
     setIpConfirmInstall(updatedInstall);
     setIpConfirmForm(buildIpConfirmForm(updatedInstall));
@@ -683,10 +703,15 @@ export default function UpsPage({ onNavigate }) {
   async function handleCopyIpResponseTable() {
     if (!ipConfirmInstall) return;
 
+    if (!formatTableCell(ipConfirmForm.snmp_ip)) {
+      notify('warning', 'Confirm the UPS IP', 'Enter the current DHCP-assigned SNMP IP before copying the response.');
+      return;
+    }
+
     try {
       setCompletingIpConfirm(true);
       const savedInstall = await saveIpDetails();
-      const sourceInstall = savedInstall || { ...ipConfirmInstall, ...buildIpConfirmPayload(ipConfirmForm) };
+      const sourceInstall = savedInstall || { ...ipConfirmInstall, ...buildIpConfirmPayload(ipConfirmForm, ipConfirmInstall) };
       const html = buildIpResponseHtml(sourceInstall);
       const text = buildIpResponseText(sourceInstall);
       const now = new Date().toISOString();
@@ -716,13 +741,19 @@ export default function UpsPage({ onNavigate }) {
   async function handleCopyBatchIpResponseTable() {
     if (batchIpConfirmRows.length === 0) return;
 
+    const missingIpRows = batchIpConfirmRows.filter((row) => !formatTableCell(row.form.snmp_ip));
+    if (missingIpRows.length > 0) {
+      notify('warning', 'Confirm every UPS IP', `${missingIpRows.length} selected record${missingIpRows.length === 1 ? ' needs' : 's need'} the current DHCP-assigned SNMP IP.`);
+      return;
+    }
+
     try {
       setBatchIpConfirmCopying(true);
       const savedRows = await Promise.all(
         batchIpConfirmRows.map((row) =>
           apiRequest(`/ups-installations/${row.ups_installation_id}`, {
             method: 'PUT',
-            body: JSON.stringify(buildIpConfirmPayload(row.form))
+            body: JSON.stringify(buildIpConfirmPayload(row.form, row))
           })
         )
       );
@@ -805,7 +836,10 @@ export default function UpsPage({ onNavigate }) {
       setReturningToServicing(true);
       await apiRequest(`/ups-installations/${completedSummaryInstall.ups_installation_id}`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'servicing' })
+        body: JSON.stringify({
+          status: 'servicing',
+          ...getIpConfirmationResetFields(completedSummaryInstall)
+        })
       });
       notify('success', 'UPS returned to Servicing');
       closeCompletedSummaryModal();
@@ -833,7 +867,8 @@ export default function UpsPage({ onNavigate }) {
             body: JSON.stringify({
               ups_po: row.ups_po,
               bp_po: row.bp_po,
-              status: 'servicing'
+              status: 'servicing',
+              ...getIpConfirmationResetFields(row)
             })
           })
         )
@@ -888,7 +923,20 @@ export default function UpsPage({ onNavigate }) {
     return escapeTableCell(column.label);
   }
 
+  function getIncludedTableColumns(columns, rows) {
+    return columns.filter((column) => {
+      if (!column.optional) return true;
+      return rows.some((row) => formatTableCell(column.optionalValue ? column.optionalValue(row) : getTableCell(row, column)));
+    });
+  }
+
+  function formatIncludedCell(row, column) {
+    const value = formatTableCell(getTableCell(row, column));
+    return column.optional && !value ? 'N/A' : value;
+  }
+
   function buildHtmlTable(columns, rows) {
+    const includedColumns = getIncludedTableColumns(columns, rows);
     const tableStyle = 'border-collapse: collapse; font-family: Arial, sans-serif; font-size: 13px;';
     const headerStyle = 'border: 1px solid #000; padding: 6px 10px; font-weight: bold; text-align: center; vertical-align: middle; white-space: nowrap; background-color: #111827; color: #ffffff;';
     const bodyStyle = 'border: 1px solid #000; padding: 4px 8px; text-align: left; vertical-align: middle; white-space: nowrap; background-color: #ffffff; color: #000000; font-weight: normal;';
@@ -896,18 +944,19 @@ export default function UpsPage({ onNavigate }) {
     return `
       <table style="${tableStyle}">
         <thead>
-          <tr>${columns.map((column) => `<th style="${headerStyle}">${getTableHeaderHtml(column)}</th>`).join('')}</tr>
+          <tr>${includedColumns.map((column) => `<th style="${headerStyle}">${getTableHeaderHtml(column)}</th>`).join('')}</tr>
         </thead>
         <tbody>
-          ${rows.map((row) => `<tr>${columns.map((column) => `<td style="${bodyStyle}">${escapeTableCell(getTableCell(row, column))}</td>`).join('')}</tr>`).join('')}
+          ${rows.map((row) => `<tr>${includedColumns.map((column) => `<td style="${bodyStyle}">${escapeTableCell(formatIncludedCell(row, column))}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
     `;
   }
 
   function buildTextTable(columns, rows) {
-    const headerRow = columns.map((column) => column.label);
-    const bodyRows = rows.map((row) => columns.map((column) => formatTableCell(getTableCell(row, column))));
+    const includedColumns = getIncludedTableColumns(columns, rows);
+    const headerRow = includedColumns.map((column) => column.label);
+    const bodyRows = rows.map((row) => includedColumns.map((column) => formatIncludedCell(row, column)));
     return [headerRow, ...bodyRows].map((row) => row.join('\t')).join('\n');
   }
 
@@ -920,24 +969,56 @@ export default function UpsPage({ onNavigate }) {
   }
 
   function getIpResponseHeading(rows) {
-    if (rows.length === 1) return `1 UPS Installed at ${formatTableCell(rows[0].school_name)}`;
-    return `${rows.length} UPS Installed`;
+    const schoolName = formatTableCell(rows[0]?.school_name) || 'Unknown School';
+    if (rows.length === 1) return `1 UPS Installed at ${schoolName}`;
+    return `${rows.length} UPS Installed at ${schoolName}`;
+  }
+
+  function sortIpResponseRows(rows) {
+    return [...rows].sort((left, right) => {
+      const ticketComparison = String(getUpsTicketLabel(left) || '').localeCompare(String(getUpsTicketLabel(right) || ''), undefined, { numeric: true });
+      if (ticketComparison !== 0) return ticketComparison;
+
+      const idfComparison = String(left.idf || '').localeCompare(String(right.idf || ''), undefined, { numeric: true });
+      if (idfComparison !== 0) return idfComparison;
+
+      return String(left.ups_installation_id || '').localeCompare(String(right.ups_installation_id || ''), undefined, { numeric: true });
+    });
+  }
+
+  function getIpResponseSchoolGroups(rows) {
+    const groupsBySchool = new Map();
+    rows.forEach((row) => {
+      const schoolName = formatTableCell(row.school_name) || 'Unknown School';
+      if (!groupsBySchool.has(schoolName)) groupsBySchool.set(schoolName, []);
+      groupsBySchool.get(schoolName).push(row);
+    });
+
+    return [...groupsBySchool.entries()]
+      .sort(([leftSchool], [rightSchool]) => leftSchool.localeCompare(rightSchool))
+      .map(([, schoolRows]) => ({
+        rows: sortIpResponseRows(schoolRows)
+      }));
   }
 
   function buildBatchIpResponseHtml(rows) {
     const headingStyle = 'margin: 0 0 8px 0; font-family: Arial, sans-serif; font-size: 13px; color: #000000; background: transparent;';
-    return [
-      `<p style="${headingStyle}"><strong>${escapeTableCell(getIpResponseHeading(rows))}</strong></p>`,
-      buildHtmlTable(ipResponseTableColumns, rows)
-    ].join('');
+    return getIpResponseSchoolGroups(rows)
+      .map((group) => [
+        `<p style="${headingStyle}"><strong>${escapeTableCell(getIpResponseHeading(group.rows))}</strong></p>`,
+        buildHtmlTable(ipResponseTableColumns, group.rows)
+      ].join(''))
+      .join('<br>');
   }
 
   function buildBatchIpResponseText(rows) {
-    return [
-      getIpResponseHeading(rows),
-      '',
-      buildTextTable(ipResponseTableColumns, rows)
-    ].join('\n');
+    return getIpResponseSchoolGroups(rows)
+      .map((group) => [
+        getIpResponseHeading(group.rows),
+        '',
+        buildTextTable(ipResponseTableColumns, group.rows)
+      ].join('\n'))
+      .join('\n\n');
   }
 
   function handleDashboardClick() {
@@ -1215,10 +1296,6 @@ export default function UpsPage({ onNavigate }) {
                 <input value={fulfillmentForm.new_mac_address} onChange={(event) => updateFulfillmentForm('new_mac_address', event.target.value)} maxLength={32} />
               </label>
               <label>
-                SNMP IP
-                <input value={fulfillmentForm.snmp_ip} onChange={(event) => updateFulfillmentForm('snmp_ip', event.target.value)} maxLength={100} />
-              </label>
-              <label>
                 BP SN
                 <input value={fulfillmentForm.new_battery_pack_serial} onChange={(event) => updateFulfillmentForm('new_battery_pack_serial', event.target.value)} maxLength={100} />
               </label>
@@ -1242,6 +1319,7 @@ export default function UpsPage({ onNavigate }) {
             <ReadOnlyField label="School" value={ipConfirmInstall.school_name} />
             <ReadOnlyField label="IDF" value={ipConfirmInstall.idf || '-'} />
             <ReadOnlyField label="Install Date" value={ipConfirmInstall.proposed_install_date || '-'} />
+            <ReadOnlyField label="Previous SNMP IP" value={getPreviousSnmpIp(ipConfirmInstall)} />
             <ReadOnlyField label="Status" value={upsStatusLabelMap[ipConfirmInstall.status] || ipConfirmInstall.status} />
           </div>
 
@@ -1307,6 +1385,7 @@ export default function UpsPage({ onNavigate }) {
                 <div className={styles.summaryDetails}>
                   <ReadOnlyField label="Ticket #" value={getUpsTicketLabel(row)} />
                   <ReadOnlyField label="School" value={row.school_name} />
+                  <ReadOnlyField label="Previous SNMP IP" value={getPreviousSnmpIp(row)} />
                 </div>
                 <div className={styles.serviceGrid}>
                   <label>
@@ -1401,6 +1480,7 @@ export default function UpsPage({ onNavigate }) {
                 </ReadOnlyGroup>
                 <ReadOnlyGroup title="SNMP / Warehouse / Status">
                   <ReadOnlyField label="SNMP IP" value={completedSummaryInstall.snmp_ip} />
+                  <ReadOnlyField label="Previous SNMP IP" value={completedSummaryInstall.previous_snmp_ip} />
                   <ReadOnlyField label="UPS PO" value={completedSummaryInstall.ups_po} />
                   <ReadOnlyField label="BP PO" value={completedSummaryInstall.bp_po} />
                   <ReadOnlyField label="Status" value={upsStatusLabelMap[completedSummaryInstall.status] || completedSummaryInstall.status} />
