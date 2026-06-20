@@ -1,0 +1,150 @@
+{
+  "process": {
+    "id": "shipping-disposing-parts",
+    "title": "Shipping/Disposing Parts",
+    "description": "After repairs are performed, defective parts are disposed of or shipped to the manufacturer, depending on part return disposition recorded in the associated order.",
+    "usedWhen": "Defective, unused, or returned parts must be shipped or disposed of following repair."
+  },
+  "media": {
+    "basePath": "/static/processFlows/screenshots",
+    "steps": {
+      "2": [
+        "Shipping_Disposing_Parts-Case_Number.jpeg",
+        "Shipping_Disposing_Parts-Case_Number_Outbound.jpeg"
+      ],
+      "3": ["Shipping_Disposing_Parts-Case_Search.png"],
+      "4": ["Shipping_Disposing_Parts-Order_Details.png"],
+      "5": ["Shipping_Disposing_Parts-Part_Select.png"],
+      "7": ["Shipping_Disposing_Parts-Return_Details.png"],
+      "8": ["Shipping_Disposing_Parts-Parts_Shipped_Disposed.png"]
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-1",
+      "type": "action",
+      "label": "Defective parts are delivered to the Parts Administration team",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "details": [
+        {
+          "text": "Defective part(s) marked RETURN",
+          "subItems": [
+            "If the replacement part was issued from inventory, return the defective part when the associated ordered part arrives"
+          ]
+        },
+        {
+          "text": "Defective or damaged batteries (any return disposition)",
+          "subItems": [
+            "If the battery does not require return, place it in designated battery recycling storage",
+            "Stop processing this item"
+          ]
+        }
+      ],
+      "tasks": [
+        "Defective part(s) marked RETURN",
+        "Defective or damaged batteries (any return disposition)"
+      ],
+      "step": "1",
+      "stepOrder": 1,
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "step-2",
+      "type": "action",
+      "label": "Identify the associated case number",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "details": [
+        "From the part’s box, or",
+        "From the return shipping label if the repair was completed using inventory parts"
+      ],
+      "tasks": [
+        "From the part's box",
+        "From the return shipping label if the repair was completed using inventory parts"
+      ],
+      "step": "2",
+      "stepOrder": 2,
+      "position": { "x": 260, "y": 180 }
+    },
+    {
+      "id": "step-3",
+      "type": "action",
+      "label": "Search for the case number and open the associated case",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "3",
+      "stepOrder": 3,
+      "position": { "x": 260, "y": 260 }
+    },
+    {
+      "id": "step-4",
+      "type": "action",
+      "label": "Open the associated order in Order Detail section",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "4",
+      "stepOrder": 4,
+      "position": { "x": 260, "y": 340 }
+    },
+    {
+      "id": "step-5",
+      "type": "action",
+      "label": "Select the part being shipped in Part Details",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "5",
+      "stepOrder": 5,
+      "position": { "x": 260, "y": 420 }
+    },
+    {
+      "id": "step-6",
+      "type": "action",
+      "label": "Remove the return label and adhere it to the shipping box",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "step": "6",
+      "stepOrder": 6,
+      "position": { "x": 260, "y": 500 }
+    },
+    {
+      "id": "step-7",
+      "type": "action",
+      "label": "Record part return details",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Return Reason: Defective/DOA/Unused",
+        "Tracking Number",
+        "Ship Date"
+      ],
+      "tasks": [
+        "Return Reason: Defective/DOA/Unused",
+        "Tracking Number",
+        "Ship Date"
+      ],
+      "step": "7",
+      "stepOrder": 7,
+      "position": { "x": 260, "y": 580 }
+    },
+    {
+      "id": "step-8",
+      "type": "action",
+      "label": "Update Parts Shipped/Disposed to Yes",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "8",
+      "stepOrder": 8,
+      "position": { "x": 260, "y": 660 }
+    }
+  ],
+  "edges": [
+    { "id": "e-1-2", "source": "step-1", "target": "step-2" },
+    { "id": "e-2-3", "source": "step-2", "target": "step-3" },
+    { "id": "e-3-4", "source": "step-3", "target": "step-4" },
+    { "id": "e-4-5", "source": "step-4", "target": "step-5" },
+    { "id": "e-5-6", "source": "step-5", "target": "step-6" },
+    { "id": "e-6-7", "source": "step-6", "target": "step-7" },
+    { "id": "e-7-8", "source": "step-7", "target": "step-8" }
+  ]
+}

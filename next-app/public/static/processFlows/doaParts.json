@@ -1,0 +1,156 @@
+{
+  "process": {
+    "id": "doa-parts",
+    "title": "DOA Parts",
+    "description": "Occasionally parts provided for repairs are found to be defective or damaged. When this occurs, repair is paused and the manufacturer is engaged for replacement.",
+    "usedWhen": "A received or issued part is defective and requires replacement."
+  },
+  "media": {
+    "basePath": "/static/processFlows/screenshots",
+    "steps": {
+      "5": ["DOA_Parts-Return_Details.png"]
+    },
+    "nodes": {
+      "end-disposal-stop": ["Stop_Sign.jpg"]
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-1",
+      "type": "action",
+      "label": "Computer Technicians email Order Administration team with DOA part details",
+      "role": "Computer Technicians",
+      "system": "Email",
+      "step": "1",
+      "stepOrder": 1,
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "step-2",
+      "type": "action",
+      "label": "Computer Technicians place the DOA part on the designated DOA rack",
+      "role": "Computer Technicians",
+      "system": "Physical",
+      "step": "2",
+      "stepOrder": 2,
+      "position": { "x": 0, "y": 80 }
+    },
+    {
+      "id": "step-3",
+      "type": "action",
+      "label": "Order Administration arranges replacement and confirms if return is required",
+      "role": "Parts Administrator",
+      "step": "3",
+      "stepOrder": 3,
+      "position": { "x": 0, "y": 160 }
+    },
+    {
+      "id": "decision-return",
+      "type": "decision",
+      "label": "Return required for defective part?",
+      "details": [
+        "Order Administration team will email to notify whether the part requires return."
+      ],
+      "step": "4",
+      "stepOrder": 4,
+      "position": { "x": 0, "y": 240 }
+    },
+    {
+      "id": "step-disposal",
+      "type": "action",
+      "label": "Place the part on the disposal pallet",
+      "details": [
+        "If return is not required."
+      ],
+      "position": { "x": -260, "y": 340 }
+    },
+    {
+      "id": "end-disposal-stop",
+      "type": "action",
+      "label": "Stop processing this case",
+      "position": { "x": -260, "y": 420 }
+    },
+    {
+      "id": "step-4-yes",
+      "type": "action",
+      "label": "Apply defective return label to the packaging",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "details": [
+        {
+          "text": "If a return label is not provided, contact Order Administration team to request one.",
+          "emphasis": true
+        }
+      ],
+      "step": "4.1",
+      "stepOrder": 4.1,
+      "position": { "x": 260, "y": 340 }
+    },
+    {
+      "id": "step-5",
+      "type": "action",
+      "label": "Record DOA return details in the associated order",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Return Reason: DOA",
+        "Tracking Number",
+        "Ship Date"
+      ],
+      "tasks": [
+        "Return Reason: DOA",
+        "Tracking Number",
+        "Ship Date"
+      ],
+      "step": "5",
+      "stepOrder": 5,
+      "position": { "x": 260, "y": 420 }
+    },
+    {
+      "id": "step-6",
+      "type": "action",
+      "label": "Ship the DOA part",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "details": [
+        {
+          "text": "See ",
+          "linkLabel": "Shipping/Disposing Parts.",
+          "linkHref": "#process-flows/shipping-disposing-parts",
+          "emphasis": true
+        }
+      ],
+      "step": "6",
+      "stepOrder": 6,
+      "position": { "x": 260, "y": 500 }
+    },
+    {
+      "id": "note-4-return-label",
+      "type": "note",
+      "label": "If a return label is not provided, contact Order Administration team to request one.",
+      "noteType": "Conditional",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "note-6-reference",
+      "type": "note",
+      "label": "See",
+      "noteType": "Referenced Process",
+      "noteLinkLabel": "Shipping/Disposing Parts",
+      "noteLinkHref": "#process-flows/shipping-disposing-parts",
+      "position": { "x": 0, "y": 0 }
+    }
+  ],
+  "edges": [
+    { "id": "e-1-2", "source": "step-1", "target": "step-2" },
+    { "id": "e-2-3", "source": "step-2", "target": "step-3" },
+    { "id": "e-3-decision", "source": "step-3", "target": "decision-return", "targetHandle": "in" },
+    { "id": "e-decision-no", "source": "decision-return", "target": "step-disposal", "sourceHandle": "no", "label": "No" },
+    { "id": "e-disposal-stop", "source": "step-disposal", "target": "end-disposal-stop" },
+    { "id": "e-decision-yes", "source": "decision-return", "target": "step-4-yes", "sourceHandle": "yes", "label": "Yes" },
+    { "id": "e-4-yes-note", "source": "step-4-yes", "target": "note-4-return-label", "kind": "annotation" },
+    { "id": "e-4-yes-5", "source": "step-4-yes", "target": "step-5" },
+    { "id": "e-5-6", "source": "step-5", "target": "step-6" },
+    { "id": "e-6-note", "source": "step-6", "target": "note-6-reference", "kind": "annotation" }
+  ]
+}

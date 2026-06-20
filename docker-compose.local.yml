@@ -1,0 +1,87 @@
+# EUS Support + hosted Network Workbench local stack.
+#
+# Recommended start:
+#   cp .env.local.example .env.local
+#   docker compose --env-file .env.local -f docker-compose.local.yml up -d --build
+#
+# The web app is EUSupport and listens on http://localhost:18004 by default.
+services:
+  eusupport_db:
+    image: postgres:16-alpine
+    container_name: eusupport-local-db
+    environment:
+      POSTGRES_DB: ${LOCAL_EUSUPPORT_PG_DB:-eusupport_local}
+      POSTGRES_USER: ${LOCAL_EUSUPPORT_PG_USER:-eusupport}
+      POSTGRES_PASSWORD: ${LOCAL_EUSUPPORT_PG_PASSWORD:-eusupport}
+    ports:
+      - "${LOCAL_EUSUPPORT_DB_PORT:-15432}:5432"
+    volumes:
+      - eusupport_local_pg_data:/var/lib/postgresql/data
+      - ../inventory_dev_sanitized_20260513_194234.dump:/seed/eusupport.dump:ro
+      - ./migrations:/eusupport-migrations:ro
+      - ./local/docker/init-eusupport-db.sh:/docker-entrypoint-initdb.d/001-init-eusupport-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  network_db:
+    image: postgres:16-alpine
+    container_name: network-workbench-local-db
+    environment:
+      POSTGRES_DB: ${LOCAL_NETWORK_PG_DB:-network_workbench_local}
+      POSTGRES_USER: ${LOCAL_NETWORK_PG_USER:-network}
+      POSTGRES_PASSWORD: ${LOCAL_NETWORK_PG_PASSWORD:-network}
+    ports:
+      - "${LOCAL_NETWORK_DB_PORT:-15433}:5432"
+    volumes:
+      - network_local_pg_data:/var/lib/postgresql/data
+      - ./network-workbench-db:/network-db:ro
+      - ./local/docker/init-network-db.sh:/docker-entrypoint-initdb.d/001-init-network-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  nextjs_dev:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.dev
+    container_name: eusupport-local-nextjs
+    environment:
+      DATABASE_URL: postgresql://${LOCAL_EUSUPPORT_PG_USER:-eusupport}:${LOCAL_EUSUPPORT_PG_PASSWORD:-eusupport}@eusupport_db:5432/${LOCAL_EUSUPPORT_PG_DB:-eusupport_local}
+      NETWORK_DATABASE_URL: postgresql://${LOCAL_NETWORK_PG_USER:-network}:${LOCAL_NETWORK_PG_PASSWORD:-network}@network_db:5432/${LOCAL_NETWORK_PG_DB:-network_workbench_local}
+      AUTH_PROVIDER: legacy
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env.local}
+      SESSION_MAX_AGE_SECONDS: ${SESSION_MAX_AGE_SECONDS:-28800}
+      WRITES_ENABLED: "true"
+      NEXT_PUBLIC_WRITES_ENABLED: "true"
+      NEXT_PUBLIC_ENV_LABEL: ${NEXT_PUBLIC_ENV_LABEL:-local}
+      NEXT_PUBLIC_NETWORK_ROUTE_PREFIX: /network
+      NEXT_PUBLIC_NETWORK_API_BASE: /api/network
+      APP_ENVIRONMENT: local
+      APP_GIT_BRANCH: local
+      DB_ALLOWED_TABLES: parts_catalog,inventory,cm_cases,cm_case_workflow_rma,cm_case_notes,cm_case_requirements,users,teams
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-}
+      SMTP_TLS: ${SMTP_TLS:-}
+    depends_on:
+      eusupport_db:
+        condition: service_healthy
+      network_db:
+        condition: service_healthy
+    ports:
+      - "0.0.0.0:${APP_PORT:-18004}:3000"
+    restart: unless-stopped
+
+volumes:
+  eusupport_local_pg_data:
+  network_local_pg_data:

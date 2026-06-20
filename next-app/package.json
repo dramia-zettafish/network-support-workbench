@@ -1,0 +1,39 @@
+{
+  "name": "eusupport-next-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:local": "next dev -H 0.0.0.0 -p ${PORT:-18004}",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed:local-network-users": "node scripts/seed-local-network-users.js",
+    "validate:db-readonly": "node scripts/validate-db-readonly.js",
+    "validate:write-safety": "node scripts/validate-write-safety.js",
+    "validate:auth-safety": "node scripts/validate-auth-safety.js",
+    "validate:production-readiness": "node scripts/validate-production-readiness.js",
+    "import:ups-history:dry-run": "node scripts/import-ups-history/import_ups_history.js --dry-run",
+    "import:ups-history:commit": "node scripts/import-ups-history/import_ups_history.js --commit"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.10.2",
+    "autoprefixer": "10.4.20",
+    "bcryptjs": "^2.4.3",
+    "dagre": "^0.8.5",
+    "next": "^14.2.0",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.0",
+    "postcss": "8.4.49",
+    "qrcode": "1.5.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "server-only": "^0.0.1",
+    "tailwindcss": "3.4.17",
+    "xlsx": "0.18.5"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.0"
+  }
+}

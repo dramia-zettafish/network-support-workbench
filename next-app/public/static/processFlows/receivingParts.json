@@ -1,0 +1,403 @@
+{
+  "process": {
+    "id": "receiving-parts",
+    "title": "Receiving Parts",
+    "description": "After orders are placed, replacement parts are received and either checked into inventory or staged for repair.",
+    "usedWhen": "Parts arrive from vendors and must be associated to a case, validated, and dispositioned correctly."
+  },
+  "media": {
+    "basePath": "/static/processFlows/screenshots",
+    "steps": {
+      "1": ["Receiving_Parts-Case_Number.jpeg"],
+      "2": ["Receiving_Parts-Order_Number.jpeg"],
+      "3": ["Receiving_Parts-Case_Search.png"],
+      "4": ["Receiving_Parts-Order_Details.png"],
+      "5": ["Receiving_Parts-Spare_Part_Utilized.png"],
+      "5.1": ["Receiving_Parts-Return_Disposition.png"],
+      "5.1.1": ["Receiving_Parts-All_Parts_Received.png"],
+      "5.2": ["Receiving_Parts-Return_Disposition.png"],
+      "5.2.1": ["Receiving_Parts-All_Parts_Received.png"],
+      "5.2.2": ["Receiving_Parts-Backorder.png"],
+      "5.2.3": ["Receiving_Parts-Receiving_Part_Yes.png"]
+    },
+    "nodes": {
+      "step-9-set-all": ["Receiving_Parts-All_Parts_Received_Yes.png"],
+      "step-7-label": ["Issuing_Stock_Parts-box_markings_collage_cropped.jpg"],
+      "step-9-update-left": ["Receiving_Parts-Update_Parts_Received.png"],
+      "step-9-update": ["Receiving_Parts-Update_Parts_Received.png"],
+      "step-11-all-received": ["Receiving_Parts-All_Parts_Received_Yes.png"]
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-1",
+      "type": "action",
+      "label": "Identify associated case number from the shipping label",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "step": "1",
+      "stepOrder": 1,
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "step-2",
+      "type": "action",
+      "label": "If case number is missing, identify it using order or PO details",
+      "role": "Parts Administrator",
+      "system": "Email",
+      "details": [
+        {
+          "text": "Look for an order number (example: OD1234567)",
+          "subItems": [
+            "If present, engage Order Administration or check CSDP to identify the case"
+          ]
+        },
+        {
+          "text": "Look for a PO number (example: P5243736)",
+          "subItems": [
+            "If present, engage Quote Administration to obtain the case number",
+            "Audit bulk shipments against the Quote Administration report",
+            "Communicate any variation in quantity or part number to Quote Administration"
+          ]
+        }
+      ],
+      "tasks": [
+        "Look for an order number (example: OD1234567)",
+        "If present, engage Order Administration or check CSDP to identify the case",
+        "Look for a PO number (example: P5243736)",
+        "If present, engage Quote Administration to obtain the case number",
+        "Audit bulk shipments against the Quote Administration report",
+        "Communicate any variation in quantity or part number to Quote Administration"
+      ],
+      "step": "2",
+      "stepOrder": 2,
+      "position": { "x": 0, "y": 80 }
+    },
+    {
+      "id": "step-3",
+      "type": "action",
+      "label": "Search for the case number and open the associated case",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "3",
+      "stepOrder": 3,
+      "position": { "x": 0, "y": 160 }
+    },
+    {
+      "id": "step-4",
+      "type": "action",
+      "label": "Open the associated order in Order Detail",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Navigate to order detail section, locate and open associated order."
+      ],
+      "step": "4",
+      "stepOrder": 4,
+      "position": { "x": 0, "y": 240 }
+    },
+    {
+      "id": "step-5",
+      "type": "action",
+      "label": "Review the order's Spare Parts Issued field",
+      "listLabel": "Spare Parts Issued?",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "5",
+      "stepOrder": 5,
+      "position": { "x": 0, "y": 320 }
+    },
+    {
+      "id": "decision-spare-parts",
+      "type": "decision",
+      "label": "Spare Part Issued = ?",
+      "branchOffset": 340,
+      "branchOffsetByHandle": {
+        "yes": 520
+      },
+      "listExpandBranches": true,
+      "branchAlign": "junction",
+      "branchAlignRef": "step-6",
+      "stepOrder": 6,
+      "position": { "x": 0, "y": 400 }
+    },
+    {
+      "id": "step-6",
+      "type": "decision",
+      "label": "Review Part\u2019s Returnable or Not field - part requires return?",
+      "listDecisionText": "Part Returnable or Not = Yes",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "5.1",
+      "branchOffset": 180,
+      "stepOrder": 6.1,
+      "position": { "x": -260, "y": 500 }
+    },
+    {
+      "id": "step-5-2",
+      "type": "action",
+      "label": "Locate and return defective part",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "details": [
+        "Remove the return label from the received part\u2019s packaging",
+        "Locate the defective part (marked with case number) on the Parts Awaiting Return rack",
+        "Label and ship the defective part",
+        {
+          "text": "See ",
+          "linkLabel": "Shipping/Disposing Parts",
+          "linkHref": "#process-flows/shipping-disposing-parts",
+          "emphasis": true
+        }
+      ],
+      "stepOrder": 6.2,
+      "listGroup": "step-5-2",
+      "alignWith": "step-7-label",
+      "position": { "x": -260, "y": 580 }
+    },
+    {
+      "id": "decision-all-received-left",
+      "type": "decision",
+      "label": "All expected parts received?",
+      "listDecisionText": "all expected parts have been received",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "In the Part Details section, assess whether all expected parts have arrived"
+      ],
+      "step": "5.1.1",
+      "branchOffset": 180,
+      "branchAlign": "match",
+      "branchAlignRef": "step-6",
+      "alignWith": "decision-all-received",
+      "stepOrder": 6.25,
+      "position": { "x": -260, "y": 660 }
+    },
+    {
+      "id": "step-9-update-left",
+      "type": "action",
+      "label": "Update individual part as received",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Open the individual part record",
+        "Enter the received date in Tracking Number field",
+        "Set part aside"
+      ],
+      "stepOrder": 6.3,
+      "alignWith": "step-9-update",
+      "position": { "x": -260, "y": 720 }
+    },
+    {
+      "id": "step-9-set-all",
+      "type": "action",
+      "label": "Set All Parts Received = Yes",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "stepOrder": 6.35,
+      "alignWith": "step-11-all-received",
+      "position": { "x": -260, "y": 780 }
+    },
+    {
+      "id": "end-add-inventory",
+      "type": "action",
+      "label": "Proceed to Adding Parts To Inventory process",
+      "details": [
+        {
+          "text": "See ",
+          "linkLabel": "Adding Parts To Inventory",
+          "linkHref": "#process-flows/adding-parts-to-inventory",
+          "emphasis": true
+        }
+      ],
+      "step": "5.1.2",
+      "alignWith": "step-9-set-all",
+      "alignOffset": 260,
+      "position": { "x": -260, "y": 620 }
+    },
+    {
+      "id": "note-add-inventory-reference",
+      "type": "note",
+      "label": "See",
+      "noteType": "Referenced Process",
+      "noteLinkLabel": "Adding Parts To Inventory",
+      "noteLinkHref": "#process-flows/adding-parts-to-inventory",
+      "notePosition": "left",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "step-5-1-no",
+      "type": "action",
+      "label": "No return required (part already disposed per repair process)",
+      "stepOrder": 6.15,
+      "alignWith": "step-7-label",
+      "position": { "x": -260, "y": 540 }
+    },
+    {
+      "id": "step-7",
+      "type": "action",
+      "label": "Part\u2019s Returnable or Not field reviewed",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "5.2",
+      "stepOrder": 7,
+      "position": { "x": 260, "y": 500 }
+    },
+    {
+      "id": "step-7-label",
+      "type": "action",
+      "label": "Label received part",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "listHidden": true,
+      "details": [
+        {
+          "text": "Label received part with:",
+          "subItems": [
+            "Case number",
+            "Date received",
+            "If applicable, return requirement \u201cW\u201d"
+          ]
+        }
+      ],
+      "stepOrder": 7.1,
+      "listGroup": "step-7",
+      "position": { "x": 260, "y": 540 }
+    },
+    {
+      "id": "decision-all-received",
+      "type": "decision",
+      "label": "All expected parts received?",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "listDecisionText": "all expected parts have been received",
+      "details": [
+        "In the Part Details section, assess whether all expected parts have arrived"
+      ],
+      "step": "5.2.1",
+      "branchOffset": 180,
+      "branchAlign": "match",
+      "branchAlignRef": "step-6",
+      "stepOrder": 9,
+      "position": { "x": 260, "y": 660 }
+    },
+    {
+      "id": "step-9-update",
+      "type": "action",
+      "label": "Update individual part as received",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Open the individual part record",
+        "Enter the received date in Tracking Number field",
+        "Set part aside"
+      ],
+      "stepOrder": 9.1,
+      "alignWith": "decision-all-received",
+      "alignOffset": 120,
+      "position": { "x": 260, "y": 720 }
+    },
+    {
+      "id": "step-10",
+      "type": "action",
+      "label": "Update case status to Backordered",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Backordered \u2013 Quote for purchased parts (TP)",
+        "Backordered \u2013 Warranty for Warranty or ADP (OD)"
+      ],
+      "tasks": [
+        "Backordered - Quote for purchased parts (TP)",
+        "Backordered - Warranty for Warranty or ADP (OD)"
+      ],
+      "step": "5.2.2",
+      "stepOrder": 10,
+      "alignWith": "end-add-inventory",
+      "alignOffset": 0,
+      "alignPhase": "post",
+      "position": { "x": 0, "y": 760 }
+    },
+    {
+      "id": "step-11",
+      "type": "action",
+      "label": "Set Receiving Parts = Yes and proceed to Issuing Received Parts",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "tasks": [
+        "Modify Receiving Parts to Yes",
+        "Proceed to the Issuing Received Parts process"
+      ],
+      "details": [
+        {
+          "text": "See ",
+          "linkLabel": "Issuing Received Parts",
+          "linkHref": "#process-flows/issuing-received-parts",
+          "emphasis": true
+        }
+      ],
+      "step": "5.2.3",
+      "stepOrder": 11,
+      "alignWith": "end-add-inventory",
+      "alignOffset": 0,
+      "alignPhase": "post",
+      "position": { "x": 520, "y": 760 }
+    },
+    {
+      "id": "step-11-all-received",
+      "type": "action",
+      "label": "Set All Parts Received = Yes",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "stepOrder": 10.5,
+      "alignWith": "decision-all-received",
+      "alignOffset": 120,
+      "position": { "x": 520, "y": 720 }
+    },
+    {
+      "id": "note-11-reference",
+      "type": "note",
+      "label": "See",
+      "noteType": "Referenced Process",
+      "noteLinkLabel": "Issuing Received Parts",
+      "noteLinkHref": "#process-flows/issuing-received-parts",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "note-5-2-reference",
+      "type": "note",
+      "label": "See",
+      "noteType": "Referenced Process",
+      "noteLinkLabel": "Shipping/Disposing Parts",
+      "noteLinkHref": "#process-flows/shipping-disposing-parts",
+      "notePosition": "left",
+      "position": { "x": 0, "y": 0 }
+    }
+  ],
+  "edges": [
+    { "id": "e-1-2", "source": "step-1", "target": "step-2" },
+    { "id": "e-2-3", "source": "step-2", "target": "step-3" },
+    { "id": "e-3-4", "source": "step-3", "target": "step-4" },
+    { "id": "e-4-5", "source": "step-4", "target": "step-5" },
+    { "id": "e-5-decision", "source": "step-5", "target": "decision-spare-parts", "targetHandle": "in" },
+    { "id": "e-spare-yes", "source": "decision-spare-parts", "target": "step-6", "sourceHandle": "no", "label": "Yes" },
+    { "id": "e-spare-no", "source": "decision-spare-parts", "target": "step-7", "sourceHandle": "yes", "label": "No" },
+    { "id": "e-6-yes", "source": "step-6", "target": "step-5-2", "sourceHandle": "no", "label": "Yes" },
+    { "id": "e-6-no", "source": "step-6", "target": "step-5-1-no", "sourceHandle": "yes", "label": "No" },
+    { "id": "e-5-1-no-left-decision", "source": "step-5-1-no", "target": "decision-all-received-left", "targetHandle": "in" },
+    { "id": "e-5-2-left-decision", "source": "step-5-2", "target": "decision-all-received-left", "targetHandle": "in" },
+    { "id": "e-5-2-note", "source": "step-5-2", "target": "note-5-2-reference", "kind": "annotation" },
+    { "id": "e-left-yes", "source": "decision-all-received-left", "target": "step-9-set-all", "sourceHandle": "yes", "label": "Yes" },
+    { "id": "e-left-no", "source": "decision-all-received-left", "target": "step-9-update-left", "sourceHandle": "no", "label": "No" },
+    { "id": "e-left-update-end", "source": "step-9-update-left", "target": "end-add-inventory" },
+    { "id": "e-left-set-all-end", "source": "step-9-set-all", "target": "end-add-inventory" },
+    { "id": "e-7-7-label", "source": "step-7", "target": "step-7-label" },
+    { "id": "e-7-label-decision", "source": "step-7-label", "target": "decision-all-received", "targetHandle": "in" },
+    { "id": "e-all-yes", "source": "decision-all-received", "target": "step-11-all-received", "sourceHandle": "yes", "label": "Yes" },
+    { "id": "e-all-yes-11", "source": "step-11-all-received", "target": "step-11" },
+    { "id": "e-all-no", "source": "decision-all-received", "target": "step-9-update", "sourceHandle": "no", "label": "No" },
+    { "id": "e-9-update-10", "source": "step-9-update", "target": "step-10" },
+    { "id": "e-11-note", "source": "step-11", "target": "note-11-reference", "kind": "annotation" },
+    { "id": "e-add-inventory-note", "source": "end-add-inventory", "target": "note-add-inventory-reference", "kind": "annotation" }
+  ]
+}

@@ -1,0 +1,18 @@
+# Development Dockerfile for the Next.js application
+# Used exclusively by docker-compose.dev.yml — not for production.
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy dependency manifests first to leverage Docker layer caching
+COPY package.json package-lock.json ./
+
+RUN npm install
+
+# Copy remaining application source files
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EUSupport Splash</title>
+  <style>
+    :root {
+      --bg-top: #f8efe3;
+      --bg-bottom: #d9ecff;
+      --card: rgba(255, 255, 255, 0.78);
+      --text: #17324d;
+      --accent: #007a6c;
+      --accent-2: #f37b2b;
+      --border: rgba(23, 50, 77, 0.12);
+      --shadow: 0 30px 80px rgba(23, 50, 77, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(243, 123, 43, 0.22), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(0, 122, 108, 0.18), transparent 28%),
+        linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    main {
+      width: min(720px, 100%);
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 40px 32px;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: clamp(2.4rem, 5vw, 4.4rem);
+      line-height: 0.98;
+    }
+
+    p {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      max-width: 58ch;
+    }
+
+    .status {
+      margin-top: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(0, 122, 108, 0.2);
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 8px rgba(0, 122, 108, 0.12);
+    }
+
+    .grid {
+      margin-top: 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+    }
+
+    .tile {
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--border);
+    }
+
+    .tile strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .tile code {
+      color: var(--accent-2);
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding: 28px 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">EUSupport Environment</div>
+    <h1>Web access is live.</h1>
+    <p>
+      If you can see this page in your browser, the new EUSupport environment is serving traffic
+      correctly and is ready for the next step.
+    </p>
+
+    <div class="status">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="status-text">Splash page reachable</span>
+    </div>
+
+    <section class="grid" aria-label="environment details">
+      <article class="tile">
+        <strong>Route</strong>
+        <code>/</code>
+      </article>
+      <article class="tile">
+        <strong>Environment</strong>
+        <code>eusupport</code>
+      </article>
+      <article class="tile">
+        <strong>Purpose</strong>
+        <code>web access test</code>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

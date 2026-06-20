@@ -1,0 +1,32 @@
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+# Provide dummy values so build-time route analysis doesn't fail.
+# These are NOT used at runtime — runtime values come from docker-compose env.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+ENV AUTH_PROVIDER=mock
+ENV SESSION_SECRET=build-time-placeholder-not-used-at-runtime-32chars
+ARG NEXT_PUBLIC_ENV_LABEL=production
+ARG NEXT_PUBLIC_WRITES_ENABLED=true
+ARG WRITES_ENABLED=true
+ENV NEXT_PUBLIC_ENV_LABEL=${NEXT_PUBLIC_ENV_LABEL}
+ENV NEXT_PUBLIC_WRITES_ENABLED=${NEXT_PUBLIC_WRITES_ENABLED}
+ENV WRITES_ENABLED=${WRITES_ENABLED}
+
+RUN npm run build
+
+FROM node:18-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+CMD ["node", "server.js"]

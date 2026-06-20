@@ -1,0 +1,35 @@
+# Admin-module branch review instance
+# Start with: docker compose -p admin_review -f docker-compose.admin-review.yml up -d --build
+services:
+  nextjs_review:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.dev
+    container_name: review-admin-module
+    environment:
+      DATABASE_URL: "postgresql://inventory_dev:dev_change_me_now@dev-api-pg-db:5432/inventory_dev"
+      AUTH_PROVIDER: legacy
+      SESSION_SECRET: "${SESSION_SECRET}"
+      WRITES_ENABLED: "true"
+      DB_ALLOWED_TABLES: "parts_catalog,inventory,cm_cases,cm_case_notes,cm_case_requirements,cm_case_workflow_rma,cm_customer_catalog,cm_rma_manufacturers,cm_message_templates,cm_workflows,users,teams,user_teams,auth_users"
+      SMTP_HOST: "${SMTP_HOST}"
+      SMTP_PORT: "${SMTP_PORT}"
+      SMTP_USER: "${SMTP_USER}"
+      SMTP_PASS: "${SMTP_PASS}"
+      SMTP_FROM: "${SMTP_FROM}"
+      SMTP_FROM_NAME: "${SMTP_FROM_NAME}"
+      SMTP_TLS: "${SMTP_TLS}"
+      NEXT_PUBLIC_ENV_LABEL: "REVIEW: tailwinds-migrate-brandon"
+    ports:
+      - "0.0.0.0:18005:3000"
+    volumes:
+      - review_local_data:/app/.local-data
+    restart: unless-stopped
+
+volumes:
+  review_local_data:
+
+networks:
+  default:
+    name: eusupport_dev_default
+    external: true

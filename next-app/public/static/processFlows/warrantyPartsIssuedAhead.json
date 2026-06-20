@@ -1,0 +1,111 @@
+{
+  "process": {
+    "id": "warranty-parts-issued-ahead",
+    "title": "Special Handling: Warranty Parts Issued Ahead of Purchased Parts",
+    "description": "Guidance for issuing warranty parts ahead of purchased parts to avoid failure-to-return chargebacks.",
+    "usedWhen": "A case includes both warranty and purchased parts, warranty parts are available first, and delaying warranty repair would risk failure-to-return chargebacks."
+  },
+  "media": {
+    "basePath": "/static/processFlows/screenshots",
+    "steps": {
+      "1": ["Special Handling-Return_Disposition.png"],
+      "2": ["Special Handling-Case_Note.png"]
+    },
+    "nodes": {
+      "decision-return": ["Special Handling-Return_Disposition.png"]
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-2",
+      "type": "action",
+      "label": "Review return status of received warranty parts",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "1",
+      "stepOrder": 1,
+      "position": { "x": 0, "y": 80 }
+    },
+    {
+      "id": "step-3",
+      "type": "action",
+      "label": "Add case note documenting partial issuance and return to awaiting parts shelf after warranty repair",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        {
+          "text": "Example note: Warranty and purchased parts required for this case. Warranty parts require return and are being issued ahead of purchased part receipt. Complete the warranty repair, then return the case to Parts Administration in Part Distribution \u2013 Quote status and place the device on the Awaiting Parts shelf.",
+          "emphasis": true
+        }
+      ],
+      "step": "2",
+      "stepOrder": 2,
+      "position": { "x": 0, "y": 160 }
+    },
+    {
+      "id": "step-4",
+      "type": "action",
+      "label": "After warranty repairs, Computer Technicians will route case back to Parts Administration queue",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Case assigned to Parts Administrators",
+        "Case status changed to Part Distribution \u2013 Quote"
+      ],
+      "step": "3",
+      "stepOrder": 3,
+      "position": { "x": 0, "y": 240 }
+    },
+    {
+      "id": "decision-return",
+      "type": "decision",
+      "label": "Warranty parts require return?",
+      "stepOrder": 1.5,
+      "position": { "x": 0, "y": 320 }
+    },
+    {
+      "id": "end-yes",
+      "type": "action",
+      "label": "Issue warranty parts before purchased parts arrive",
+      "details": [
+        {
+          "text": "See ",
+          "linkLabel": "Issuing Received Parts.",
+          "linkHref": "#process-flows/issuing-received-parts",
+          "emphasis": true
+        }
+      ],
+      "position": { "x": 260, "y": 420 }
+    },
+    {
+      "id": "end-no",
+      "type": "action",
+      "label": "Part issuance can wait until purchased parts arrive",
+      "position": { "x": -260, "y": 420 }
+    },
+    {
+      "id": "end-no-status",
+      "type": "action",
+      "label": "Await purchased parts arrival",
+      "position": { "x": -260, "y": 520 }
+    },
+    {
+      "id": "note-yes-reference",
+      "type": "note",
+      "label": "See",
+      "noteType": "Referenced Process",
+      "noteLinkLabel": "Issuing Received Parts",
+      "noteLinkHref": "#process-flows/issuing-received-parts",
+      "position": { "x": 0, "y": 0 }
+    }
+  ],
+  "edges": [
+    { "id": "e-2-decision", "source": "step-2", "target": "decision-return", "targetHandle": "in" },
+    { "id": "e-decision-yes", "source": "decision-return", "target": "end-yes", "sourceHandle": "yes", "label": "Yes" },
+    { "id": "e-decision-no", "source": "decision-return", "target": "end-no", "sourceHandle": "no", "label": "No" },
+    { "id": "e-yes-note", "source": "end-yes", "target": "note-yes-reference", "kind": "annotation" },
+    { "id": "e-yes-3", "source": "end-yes", "target": "step-3" },
+    { "id": "e-no-status", "source": "end-no", "target": "end-no-status" },
+    { "id": "e-3-4", "source": "step-3", "target": "step-4" }
+  ]
+}

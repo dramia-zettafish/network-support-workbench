@@ -1,0 +1,56 @@
+{
+  "process": {
+    "id": "spare-part-inventory",
+    "title": "Spare Part Inventory",
+    "description": "On the first Friday of each month, spare parts are inventoried to ensure inventory records accurately reflect stock counts.",
+    "usedWhen": "Performing the scheduled monthly spare parts inventory audit."
+  },
+  "media": {
+    "basePath": "/static/processFlows/screenshots",
+    "steps": {
+      "2": ["Spare_Part_Inventory-CSV.png"]
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-1",
+      "type": "action",
+      "label": "Count all parts in spare part inventory",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "step": "1",
+      "stepOrder": 1,
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "step-2",
+      "type": "action",
+      "label": "Compare part totals against Inventory System records",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "details": [
+        "Inventory records can be exported using the Export CSV button to simplify reconciliation"
+      ],
+      "tasks": [
+        "Export Inventory System records using the Export CSV button to simplify reconciliation"
+      ],
+      "step": "2",
+      "stepOrder": 2,
+      "position": { "x": 0, "y": 80 }
+    },
+    {
+      "id": "step-3",
+      "type": "action",
+      "label": "Communicate any variation in part counts to Service Manager",
+      "role": "Parts Administrator",
+      "system": "Email",
+      "step": "3",
+      "stepOrder": 3,
+      "position": { "x": 0, "y": 160 }
+    }
+  ],
+  "edges": [
+    { "id": "e-1-2", "source": "step-1", "target": "step-2" },
+    { "id": "e-2-3", "source": "step-2", "target": "step-3" }
+  ]
+}

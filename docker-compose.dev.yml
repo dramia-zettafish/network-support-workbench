@@ -1,0 +1,84 @@
+# EUS Support — DEV stack (Next.js only)
+# Start: docker compose -p eusupport_dev --env-file .env.dev -f docker-compose.dev.yml up -d --build
+#
+# This compose file intentionally uses DEV_* variables and fails closed if .env.dev
+# is not provided, to prevent production credential inheritance from .env.
+services:
+  api_pg_db:
+    image: postgres:16-alpine
+    container_name: dev-api-pg-db
+    environment:
+      POSTGRES_DB: ${DEV_INVENTORY_PG_DB:?DEV_INVENTORY_PG_DB must be set in .env.dev}
+      POSTGRES_USER: ${DEV_INVENTORY_PG_USER:?DEV_INVENTORY_PG_USER must be set in .env.dev}
+      POSTGRES_PASSWORD: ${DEV_INVENTORY_PG_PASSWORD:?DEV_INVENTORY_PG_PASSWORD must be set in .env.dev}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    volumes:
+      - dev_api_pg_data:/var/lib/postgresql/data
+
+  nextjs_dev:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.dev
+    container_name: dev-nextjs
+    environment:
+      DATABASE_URL: "postgresql://${DEV_INVENTORY_PG_USER:?DEV_INVENTORY_PG_USER must be set in .env.dev}:${DEV_INVENTORY_PG_PASSWORD_URLENCODED:?DEV_INVENTORY_PG_PASSWORD_URLENCODED must be set in .env.dev}@api_pg_db:5432/${DEV_INVENTORY_PG_DB:?DEV_INVENTORY_PG_DB must be set in .env.dev}"
+      AUTH_PROVIDER: legacy
+      SESSION_SECRET: "${SESSION_SECRET}"
+      WRITES_ENABLED: "true"
+      SMTP_HOST: "${SMTP_HOST}"
+      SMTP_PORT: "${SMTP_PORT}"
+      SMTP_USER: "${SMTP_USER}"
+      SMTP_PASS: "${SMTP_PASS}"
+      SMTP_FROM: "${SMTP_FROM}"
+      SMTP_FROM_NAME: "${SMTP_FROM_NAME}"
+      SMTP_TLS: "${SMTP_TLS}"
+      NEXT_PUBLIC_ENV_LABEL: development
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      APP_GIT_BRANCH: ${APP_GIT_BRANCH:-local}
+      DB_ALLOWED_TABLES: parts_catalog,inventory,cm_cases,cm_case_workflow_rma,cm_case_notes,cm_case_requirements,users,teams
+      SYSTEM_METRICS_STORAGE_PATH: ${SYSTEM_METRICS_STORAGE_PATH:-/host-storage}
+      SYSTEM_METRICS_HOST_SNAPSHOT_PATH: ${SYSTEM_METRICS_HOST_SNAPSHOT_PATH:-/host-storage/tmp/eusupport-system-metrics.json}
+      SYSTEM_METRICS_CONTAINER_NAME: dev-nextjs
+      SYSTEM_METRICS_HISTORY_DIR: /app/.local-data/system-monitoring
+    depends_on:
+      api_pg_db:
+        condition: service_healthy
+    ports:
+      - "0.0.0.0:18003:3000"
+    volumes:
+      - type: bind
+        source: "${SYSTEM_METRICS_STORAGE_SOURCE:-/}"
+        target: /host-storage
+        read_only: true
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+      - system_metrics_data:/app/.local-data/system-monitoring
+    restart: unless-stopped
+
+  system_metrics_collector:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.dev
+    container_name: dev-system-metrics-collector
+    command: ["node", "scripts/collect-system-metrics.js"]
+    environment:
+      SYSTEM_METRICS_BASE_URL: http://nextjs_dev:3000
+      SYSTEM_METRICS_COLLECTOR_INTERVAL_MS: ${SYSTEM_METRICS_COLLECTOR_INTERVAL_MS:-1000}
+      SYSTEM_METRICS_COLLECTOR_USERNAME: ${SYSTEM_METRICS_COLLECTOR_USERNAME:-DEV User}
+      SYSTEM_METRICS_COLLECTOR_ROLE: ${SYSTEM_METRICS_COLLECTOR_ROLE:-manager}
+      SESSION_SECRET: "${SESSION_SECRET}"
+    depends_on:
+      nextjs_dev:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  dev_api_pg_data:
+  system_metrics_data:

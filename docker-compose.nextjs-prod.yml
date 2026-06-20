@@ -1,0 +1,138 @@
+# EUS Support — Production Stack (Next.js + PostgreSQL + Caddy)
+# Start with: docker compose -f docker-compose.nextjs-prod.yml up -d --build
+# WARNING: Do NOT use 'docker compose down -v' — this would destroy the database volume.
+
+services:
+  nextjs_prod:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_ENV_LABEL: production
+        NEXT_PUBLIC_WRITES_ENABLED: "true"
+        WRITES_ENABLED: "true"
+    image: eusupport-nextjs:latest
+    container_name: eusupport-nextjs-prod
+    env_file:
+      - ./.env.nextjs-prod
+    environment:
+      DATABASE_URL: "postgresql://${INVENTORY_PG_USER:-inventory}:${INVENTORY_PG_PASSWORD_URLENCODED}@api_pg_db:5432/${INVENTORY_PG_DB:-inventory}"
+      NODE_ENV: production
+    depends_on:
+      api_pg_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/login"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "127.0.0.1:18007:3000"
+    networks:
+      - default
+      - webstack
+    volumes:
+      - type: bind
+        source: /
+        target: /host-storage
+        read_only: true
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+    restart: unless-stopped
+
+  prod_metrics_collector:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.dev
+    container_name: eusupport-prod-metrics-collector
+    command: ["node", "scripts/collect-system-metrics.js"]
+    env_file:
+      - ./.env.nextjs-prod
+    environment:
+      SYSTEM_METRICS_BASE_URL: http://nextjs_prod:3000
+      SYSTEM_METRICS_COLLECTOR_INTERVAL_MS: 1000
+      SYSTEM_METRICS_COLLECTOR_USERNAME: Brandon
+      SYSTEM_METRICS_COLLECTOR_ROLE: manager
+    depends_on:
+      nextjs_prod:
+        condition: service_healthy
+    networks:
+      - default
+      - webstack
+    restart: unless-stopped
+
+  # PostgreSQL database (shared volume persists data across container recreates)
+  api_pg_db:
+    image: postgres:16-alpine
+    container_name: webstack-api-pg-db
+    environment:
+      POSTGRES_DB: ${INVENTORY_PG_DB:-inventory}
+      POSTGRES_USER: ${INVENTORY_PG_USER:-inventory}
+      POSTGRES_PASSWORD: ${INVENTORY_PG_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    volumes:
+      - api_pg_data:/var/lib/postgresql/data
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: webstack-caddy
+    depends_on:
+      nextjs_prod:
+        condition: service_healthy
+    environment:
+      CADDY_CERT_MODE: ${CADDY_CERT_MODE:-manual}
+      CADDY_PUBLIC_HOSTNAME: ${CADDY_PUBLIC_HOSTNAME:-}
+      CADDY_HTTPS_SITE_ADDRESS: ${CADDY_HTTPS_SITE_ADDRESS:-:443}
+      CADDY_MANUAL_CERT_FILE: ${CADDY_MANUAL_CERT_FILE:-/certs/tls.crt}
+      CADDY_MANUAL_KEY_FILE: ${CADDY_MANUAL_KEY_FILE:-/certs/tls.key}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+          if [ "${CADDY_CERT_MODE}" = "auto" ]; then
+            if [ -z "${CADDY_PUBLIC_HOSTNAME}" ]; then
+              echo "CADDY_PUBLIC_HOSTNAME must be set when CADDY_CERT_MODE=auto" >&2
+              exit 1
+            fi
+            export CADDY_GLOBAL_OPTIONS=""
+            export CADDY_SITE_ADDRESS="${CADDY_PUBLIC_HOSTNAME}"
+            export CADDY_TLS_BLOCK=""
+          else
+            if [ ! -f "${CADDY_MANUAL_CERT_FILE}" ] || [ ! -f "${CADDY_MANUAL_KEY_FILE}" ]; then
+              echo "Manual certificate files not found: ${CADDY_MANUAL_CERT_FILE} ${CADDY_MANUAL_KEY_FILE}" >&2
+              exit 1
+            fi
+            export CADDY_GLOBAL_OPTIONS="auto_https disable_certs"
+            export CADDY_SITE_ADDRESS="${CADDY_HTTPS_SITE_ADDRESS}"
+            export CADDY_TLS_BLOCK="tls ${CADDY_MANUAL_CERT_FILE} ${CADDY_MANUAL_KEY_FILE}"
+          fi
+
+          exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    ports:
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDY_CERTS_HOST_DIR:-/home/eusadmin/eusupport/caddy-certs}:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+networks:
+  webstack:
+    external: true
+    name: webstack_default
+
+volumes:
+  api_pg_data:
+    external: true
+    name: eusupport_api_pg_data
+  caddy_data:
+  caddy_config:

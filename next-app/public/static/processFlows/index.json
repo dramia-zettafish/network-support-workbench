@@ -1,0 +1,60 @@
+{
+  "processes": [
+    {
+      "id": "issuing-stock-parts",
+      "title": "Issuing Stock Parts",
+      "description": "Steps taken to issue parts to remedy a hardware issue for an end user compute asset from inventoried parts.",
+      "usedWhen": "Inventory parts are available and being assigned to an active repair.",
+      "definition": "/static/processFlows/issuingStockParts.json"
+    },
+    {
+      "id": "issuing-received-parts",
+      "title": "Issuing Received Parts",
+      "description": "Steps taken to issue parts to remedy a hardware issue for an end user compute asset.",
+      "usedWhen": "Inventory parts are not available and received parts are being assigned to an active repair.",
+      "definition": "/static/processFlows/issuingReceivedParts.json"
+    },
+    {
+      "id": "warranty-parts-issued-ahead",
+      "title": "Special Handling: Warranty Parts Issued Ahead of Purchased Parts",
+      "description": "Guidance for issuing warranty parts ahead of purchased parts to avoid failure-to-return chargebacks.",
+      "usedWhen": "A case includes both warranty and purchased parts, warranty parts are available first, and delaying warranty repair would risk failure-to-return chargebacks.",
+      "definition": "/static/processFlows/warrantyPartsIssuedAhead.json"
+    },
+    {
+      "id": "doa-parts",
+      "title": "DOA Parts",
+      "description": "Occasionally parts provided for repairs are found to be defective or damaged. When this occurs, repair is paused and the manufacturer is engaged for replacement.",
+      "usedWhen": "A received or issued part is defective and requires replacement.",
+      "definition": "/static/processFlows/doaParts.json"
+    },
+    {
+      "id": "receiving-parts",
+      "title": "Receiving Parts",
+      "description": "After orders are placed, replacement parts are received and either checked into inventory or staged for repair.",
+      "usedWhen": "Parts arrive from vendors and must be associated to a case, validated, and dispositioned correctly.",
+      "definition": "/static/processFlows/receivingParts.json"
+    },
+    {
+      "id": "adding-parts-to-inventory",
+      "title": "Adding Parts To Inventory",
+      "description": "Steps taken to add parts to inventory.",
+      "usedWhen": "Replacement parts are received for cases repaired using inventory parts, inventory is being replenished, or parts are purchased specifically for inventory.",
+      "definition": "/static/processFlows/addingPartsToInventory.json"
+    },
+    {
+      "id": "shipping-disposing-parts",
+      "title": "Shipping/Disposing Parts",
+      "description": "After repairs are performed, defective parts are disposed of or shipped to the manufacturer, depending on part return disposition recorded in the associated order.",
+      "usedWhen": "Defective, unused, or returned parts must be shipped or disposed of following repair.",
+      "definition": "/static/processFlows/shippingDisposingParts.json"
+    },
+    {
+      "id": "spare-part-inventory",
+      "title": "Spare Part Inventory",
+      "description": "On the first Friday of each month, spare parts are inventoried to ensure inventory records accurately reflect stock counts.",
+      "usedWhen": "Performing the scheduled monthly spare parts inventory audit.",
+      "definition": "/static/processFlows/sparePartInventory.json"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+    {$CADDY_GLOBAL_OPTIONS}
+}
+
+# Manual mode:
+#   CADDY_SITE_ADDRESS defaults to :443 and CADDY_TLS_BLOCK is populated with
+#   a tls <cert> <key> directive by docker compose.
+#
+# Automatic mode:
+#   docker compose sets CADDY_SITE_ADDRESS to the DNS hostname and leaves
+#   CADDY_TLS_BLOCK empty so Caddy can manage the certificate itself.
+
+(security_headers) {
+    header {
+        ?X-Frame-Options "DENY"
+        ?X-Content-Type-Options "nosniff"
+        ?Referrer-Policy "strict-origin-when-cross-origin"
+        ?Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    }
+}
+
+http:// {
+    redir https://{host}{uri} permanent
+}
+
+{$CADDY_SITE_ADDRESS::443} {
+    encode zstd gzip
+    import security_headers
+    {$CADDY_TLS_BLOCK}
+    reverse_proxy eusupport-nextjs-prod:3000
+}

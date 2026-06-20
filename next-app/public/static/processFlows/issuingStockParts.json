@@ -1,0 +1,378 @@
+{
+  "process": {
+    "id": "issuing-stock-parts",
+    "title": "Issuing Stock Parts",
+    "description": "Steps taken to issue parts to remedy a hardware issue for an end user compute asset from inventoried parts.",
+    "usedWhen": "Inventory parts are available and being assigned to an active repair."
+  },
+  "media": {
+    "basePath": "/static/processFlows/screenshots",
+    "steps": {
+      "2": ["Issuing_Stock_Parts-Sort_Team_Queue.png"],
+      "4": ["Issuing_Stock_Parts-Information_Collection_Note.png"],
+      "5": ["Issuing_Stock_Parts-Target_Asset_Location.png"],
+      "6": ["Issuing_Stock_Parts-Order_Detail_Section.png"],
+      "7": ["Issuing_Stock_Parts-Parts_Needed.png"],
+      "8": ["Issuing_Stock_Parts-Inventory_Search.png"],
+      "9": ["Issuing_Stock_Parts-Inventory_Search.png"],
+      "9.1": [
+        "Issuing_Stock_Parts-Spare_Parts_Utilized_Yes.png",
+        "Issuing_Stock_Parts-Return_Disposition.png"
+      ],
+      "9.2": ["Issuing_Stock_Parts-Parts_Not_Available.png"],
+      "10": ["Issuing_Stock_Parts-Inventory_Part_Select_Case_Add_Selected.png"],
+      "11": ["Issuing_Stock_Parts-Inventory_Return_Disposition_Complete.png"],
+      "12": ["Issuing_Stock_Parts-Parts_Shipped_Disposed.png"],
+      "13": ["Issuing_Stock_Parts-Issuing_Parts.png"],
+      "14": ["Issuing_Stock_Parts-Next_Stage.png"],
+      "16": [
+        "Issuing_Stock_Parts-Inventory_Print_This_Session.png",
+        "Issuing_Stock_Parts-Session_Printout.png"
+      ],
+      "17": ["Issuing_Stock_Parts-box_markings_collage_cropped.jpg"]
+    },
+    "nodes": {
+      "end-no-inventory": ["Stop_Sign.jpg"]
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-1",
+      "type": "action",
+      "label": "Open and log in to Dynamics and Inventory System",
+      "role": "Parts Administrator",
+      "system": "Dynamics / Inventory System",
+      "step": "1",
+      "stepOrder": 1,
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "step-2",
+      "type": "action",
+      "label": "Sort team queue chronologically to find oldest cases",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "2",
+      "stepOrder": 2,
+      "position": { "x": 0, "y": 80 }
+    },
+    {
+      "id": "step-3",
+      "type": "action",
+      "label": "Open oldest case",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "3",
+      "stepOrder": 3,
+      "position": { "x": 0, "y": 160 }
+    },
+    {
+      "id": "step-4",
+      "type": "action",
+      "label": "Review Information Collection note for device location",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "details": [
+        "Copy the location entry."
+      ],
+      "step": "4",
+      "stepOrder": 4,
+      "position": { "x": 0, "y": 240 }
+    },
+    {
+      "id": "step-5",
+      "type": "action",
+      "label": "Paste location entry in Target Asset/Location field",
+      "details": [
+        {
+          "text": "System Behavior: If parts are later determined to be unavailable in inventory, this location entry will be overwritten.",
+          "emphasis": true
+        }
+      ],
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "step": "5",
+      "stepOrder": 5,
+      "position": { "x": 0, "y": 320 }
+    },
+    {
+      "id": "note-5-overwrite",
+      "type": "note",
+      "label": "Location entry will be overwritten if parts are later determined to be unavailable in inventory.",
+      "noteType": "System Behavior",
+      "position": { "x": 240, "y": 320 }
+    },
+    {
+      "id": "step-6",
+      "type": "action",
+      "label": "Open associated order in Order Details section",
+      "details": [
+        {
+          "text": "Conditional: If the case has multiple orders, review each claim and the case notes to understand the reason.",
+          "emphasis": true
+        }
+      ],
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "6",
+      "stepOrder": 6,
+      "position": { "x": 0, "y": 480 }
+    },
+    {
+      "id": "note-6-multiple-orders",
+      "type": "note",
+      "label": "If the case has multiple orders, review each claim and the case notes to understand the reason.",
+      "noteType": "Conditional",
+      "position": { "x": 240, "y": 480 }
+    },
+    {
+      "id": "step-7",
+      "type": "action",
+      "label": "Review order to assess what parts are needed",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "7",
+      "stepOrder": 7,
+      "position": { "x": 0, "y": 640 }
+    },
+    {
+      "id": "step-8",
+      "type": "action",
+      "label": "Assess if required parts are in stock",
+      "listGroup": "inventory-check",
+      "listLabel": "Check inventory availability for required parts",
+      "details": [
+        "Search the ordered part number(s) in Inventory System to confirm available counts."
+      ],
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "step": "8",
+      "stepOrder": 8,
+      "position": { "x": 0, "y": 720 }
+    },
+    {
+      "id": "decision-availability",
+      "type": "decision",
+      "label": "Parts available in inventory?",
+      "listDecisionText": "The parts are available in inventory",
+      "step": "9",
+      "stepOrder": 9,
+      "position": { "x": 0, "y": 900 }
+    },
+    {
+      "id": "step-9-yes",
+      "type": "action",
+      "label": "Set \"Spare Part(s) Utilized\" = Yes and note return disposition",
+      "listHidden": true,
+      "details": [
+        "Take note of part return disposition while in order."
+      ],
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "9.1",
+      "stepOrder": 9.1,
+      "position": { "x": 0, "y": 1000 }
+    },
+    {
+      "id": "step-9-no",
+      "type": "action",
+      "label": "Leave Information Collection note: \"Part(s) not in inventory, awaiting ordered part(s).\"",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "9.2",
+      "stepOrder": 9.2,
+      "position": { "x": -260, "y": 1000 }
+    },
+    {
+      "id": "end-no-inventory",
+      "type": "action",
+      "label": "Stop processing this case; proceed to next assigned case",
+      "position": { "x": -260, "y": 1120 }
+    },
+    {
+      "id": "step-10",
+      "type": "action",
+      "label": "Check out part(s) in Inventory System",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "details": [
+        "Select the needed part(s) and add them to cart.",
+        "Enter the associated case number.",
+        "Target Asset/Location should already be filled from step 5.",
+        "Click Add Selected."
+      ],
+      "step": "10",
+      "stepOrder": 10,
+      "position": { "x": 0, "y": 1120 }
+    },
+    {
+      "id": "step-11",
+      "type": "action",
+      "label": "Update return status(s) and complete checkout",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "details": [
+        "Update part return disposition(s).",
+        "Select Next Stage > Complete."
+      ],
+      "step": "11",
+      "stepOrder": 11,
+      "position": { "x": 0, "y": 1200 }
+    },
+    {
+      "id": "step-12",
+      "type": "action",
+      "label": "If no parts require return, set \"Parts Shipped/Disposed\" = Yes",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "12",
+      "stepOrder": 12,
+      "position": { "x": 0, "y": 1200 }
+    },
+    {
+      "id": "step-13",
+      "type": "action",
+      "label": "Set \"Issuing Parts\" = Yes",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "13",
+      "stepOrder": 13,
+      "position": { "x": 0, "y": 1280 }
+    },
+    {
+      "id": "step-14",
+      "type": "action",
+      "label": "Click \"Next Stage\" to advance the case to Repair stage",
+      "role": "Parts Administrator",
+      "system": "Dynamics",
+      "step": "14",
+      "stepOrder": 14,
+      "position": { "x": 0, "y": 1360 }
+    },
+    {
+      "id": "step-15",
+      "type": "action",
+      "label": "Repeat steps 1-14 until all cases are checked",
+      "listGroup": "repeat-cases",
+      "listLabel": "Repeat for remaining cases",
+      "tasks": [
+        "Repeat steps 1-14 until all cases are checked"
+      ],
+      "details": [
+        {
+          "text": "Admin Tip: Work in intervals of 5, 10, or 20 cases if preferred.",
+          "emphasis": true
+        }
+      ],
+      "role": "Parts Administrator",
+      "step": "15",
+      "stepOrder": 15,
+      "position": { "x": 0, "y": 1440 }
+    },
+    {
+      "id": "note-15-intervals",
+      "type": "note",
+      "label": "Work in intervals of 5, 10, or 20 cases if preferred.",
+      "noteType": "Admin Tip",
+      "position": { "x": 240, "y": 1440 }
+    },
+    {
+      "id": "step-16",
+      "type": "action",
+      "label": "Print session report of parts issued",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "details": [
+        "Use Print This Session to capture issued parts, locations, case assignments, asset locations, and return disposition."
+      ],
+      "step": "16",
+      "stepOrder": 16,
+      "position": { "x": 0, "y": 1600 }
+    },
+    {
+      "id": "step-17",
+      "type": "action",
+      "label": "Label each part with case number, date and return status",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "step": "17",
+      "stepOrder": 17,
+      "position": { "x": 0, "y": 1680 }
+    },
+    {
+      "id": "step-18",
+      "type": "action",
+      "label": "Pair device with replacement part(s) on Awaiting Repair shelf",
+      "role": "Parts Administrator",
+      "system": "Physical",
+      "details": [
+        "Search the shelf identified in the Information Collection note.",
+        "Pair the device with the replacement part(s) and place both on the Awaiting Repair shelf."
+      ],
+      "step": "18",
+      "stepOrder": 18,
+      "position": { "x": 0, "y": 1760 }
+    },
+    {
+      "id": "decision-device",
+      "type": "decision",
+      "label": "Device found on expected shelf?",
+      "step": "19",
+      "stepOrder": 19,
+      "position": { "x": 0, "y": 1860 }
+    },
+    {
+      "id": "end-yes",
+      "type": "action",
+      "label": "Device + parts staged for repair",
+      "position": { "x": 260, "y": 1960 }
+    },
+    {
+      "id": "email-no",
+      "type": "action",
+      "label": "Email diagnosing technician to locate device (CC Service Supervisor)",
+      "role": "Parts Administrator",
+      "system": "Email",
+      "details": [
+        "Request they locate the device and confirm the location.",
+        "CC the Service Supervisor."
+      ],
+      "position": { "x": -260, "y": 1960 }
+    },
+    {
+      "id": "end-no",
+      "type": "action",
+      "label": "Awaiting device location confirmation",
+      "position": { "x": -260, "y": 2080 }
+    }
+  ],
+  "edges": [
+    { "id": "e-1-2", "source": "step-1", "target": "step-2" },
+    { "id": "e-2-3", "source": "step-2", "target": "step-3" },
+    { "id": "e-3-4", "source": "step-3", "target": "step-4" },
+    { "id": "e-4-5", "source": "step-4", "target": "step-5" },
+    { "id": "e-5-note", "source": "step-5", "target": "note-5-overwrite", "kind": "annotation" },
+    { "id": "e-5-6", "source": "step-5", "target": "step-6" },
+    { "id": "e-6-note", "source": "step-6", "target": "note-6-multiple-orders", "kind": "annotation" },
+    { "id": "e-6-7", "source": "step-6", "target": "step-7" },
+    { "id": "e-7-8", "source": "step-7", "target": "step-8" },
+    { "id": "e-8-decision", "source": "step-8", "target": "decision-availability", "targetHandle": "in" },
+    { "id": "e-decision-yes", "source": "decision-availability", "target": "step-9-yes", "sourceHandle": "yes", "label": "Yes" },
+    { "id": "e-decision-no", "source": "decision-availability", "target": "step-9-no", "sourceHandle": "no", "label": "No" },
+    { "id": "e-9-no-end", "source": "step-9-no", "target": "end-no-inventory" },
+    { "id": "e-9-yes-10", "source": "step-9-yes", "target": "step-10" },
+    { "id": "e-10-11", "source": "step-10", "target": "step-11" },
+    { "id": "e-11-12", "source": "step-11", "target": "step-12" },
+    { "id": "e-12-13", "source": "step-12", "target": "step-13" },
+    { "id": "e-13-14", "source": "step-13", "target": "step-14" },
+    { "id": "e-14-15", "source": "step-14", "target": "step-15" },
+    { "id": "e-15-note", "source": "step-15", "target": "note-15-intervals", "kind": "annotation" },
+    { "id": "e-15-16", "source": "step-15", "target": "step-16" },
+    { "id": "e-16-17", "source": "step-16", "target": "step-17" },
+    { "id": "e-17-18", "source": "step-17", "target": "step-18" },
+    { "id": "e-18-decision", "source": "step-18", "target": "decision-device", "targetHandle": "in" },
+    { "id": "e-device-yes", "source": "decision-device", "target": "end-yes", "sourceHandle": "yes", "label": "Yes" },
+    { "id": "e-device-no", "source": "decision-device", "target": "email-no", "sourceHandle": "no", "label": "No" },
+    { "id": "e-email-end", "source": "email-no", "target": "end-no" }
+  ]
+}

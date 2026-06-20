@@ -1,0 +1,154 @@
+{
+  "process": {
+    "id": "adding-parts-to-inventory",
+    "title": "Adding Parts To Inventory",
+    "description": "Steps taken to add parts to inventory.",
+    "usedWhen": "Replacement parts are received for cases repaired using inventory parts, inventory is being replenished, or parts are purchased specifically for inventory."
+  },
+  "media": {
+    "basePath": "/static/processFlows/screenshots",
+    "steps": {
+      "2": ["Adding_Parts_To_Inventory-Check_In_Tab.png"],
+      "3": ["Adding_Parts_To_Inventory-Enter_Details.png"],
+      "4": ["Adding_Parts_To_Inventory-Click_Check_Part_In.png"],
+      "6": ["Adding_Parts_To_Inventory-Validation_Message.png"],
+      "8": ["Adding_Parts_To_Inventory-Print_This_Session.png"]
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-1",
+      "type": "action",
+      "label": "Open and log in to the Inventory System",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "step": "1",
+      "stepOrder": 1,
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "step-2",
+      "type": "action",
+      "label": "Navigate to the Check In tab",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "step": "2",
+      "stepOrder": 2,
+      "position": { "x": 0, "y": 80 }
+    },
+    {
+      "id": "step-3",
+      "type": "action",
+      "label": "Enter received part details",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "details": [
+        "Part Number",
+        "Case Number: The case number the part was received for",
+        "Order Number: The order number associated with the received part"
+      ],
+      "tasks": [
+        "Part Number",
+        "Case Number: The case number the part was received for",
+        "Order Number: The order number associated with the received part"
+      ],
+      "step": "3",
+      "stepOrder": 3,
+      "position": { "x": 0, "y": 160 }
+    },
+    {
+      "id": "step-4",
+      "type": "action",
+      "label": "Click Check Part In",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "step": "4",
+      "stepOrder": 4,
+      "position": { "x": 0, "y": 240 }
+    },
+    {
+      "id": "step-5",
+      "type": "action",
+      "label": "Inventory System adds the part to inventory",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "step": "5",
+      "stepOrder": 5,
+      "position": { "x": 0, "y": 320 }
+    },
+    {
+      "id": "step-6",
+      "type": "action",
+      "label": "If presented with a validation message, correct part number or escalate",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "details": [
+        "If the entry is incorrect, click Cancel, correct the part number, and click Check Part In again",
+        {
+          "text": "If entry is correct and the part must be added to inventory",
+          "subItems": [
+            "Click Escalate to Supervisor",
+            "In the prompt, enter the reason the part needs to be added to inventory and click Send Request",
+            "Management reviews request and approves or denies it"
+          ]
+        }
+      ],
+      "tasks": [
+        "If the entry is incorrect, click Cancel, correct the part number, and click Check Part In again",
+        "If entry is correct and the part must be added to inventory, click Escalate to Supervisor",
+        "In the prompt, enter the reason the part needs to be added to inventory and click Send Request",
+        "Management reviews request and approves or denies it"
+      ],
+      "step": "6",
+      "stepOrder": 6,
+      "position": { "x": 0, "y": 400 }
+    },
+    {
+      "id": "step-7",
+      "type": "action",
+      "label": "Repeat the process for all parts requiring check-in",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "step": "7",
+      "stepOrder": 7,
+      "position": { "x": 0, "y": 480 }
+    },
+    {
+      "id": "step-8",
+      "type": "action",
+      "label": "Print the Check-in Session report to support shelving",
+      "role": "Parts Administrator",
+      "system": "Inventory System",
+      "details": [
+        {
+          "text": "Admin Tip: This report can be used to streamline shelving by allowing parts to be checked in first and stocked afterward, rather than shelving each part individually.",
+          "emphasis": true
+        }
+      ],
+      "tasks": [
+        "Use Print This Check-in Session to generate the report",
+        "Report allows parts to be checked in first and stocked afterward"
+      ],
+      "step": "8",
+      "stepOrder": 8,
+      "position": { "x": 0, "y": 560 }
+    },
+    {
+      "id": "note-8-shelving-tip",
+      "type": "note",
+      "label": "This report can be used to streamline shelving by allowing parts to be checked in first and stocked afterward, rather than shelving each part individually.",
+      "noteType": "Admin Tip",
+      "position": { "x": 240, "y": 560 }
+    }
+  ],
+  "edges": [
+    { "id": "e-1-2", "source": "step-1", "target": "step-2" },
+    { "id": "e-2-3", "source": "step-2", "target": "step-3" },
+    { "id": "e-3-4", "source": "step-3", "target": "step-4" },
+    { "id": "e-4-5", "source": "step-4", "target": "step-5" },
+    { "id": "e-5-6", "source": "step-5", "target": "step-6" },
+    { "id": "e-6-7", "source": "step-6", "target": "step-7" },
+    { "id": "e-7-8", "source": "step-7", "target": "step-8" },
+    { "id": "e-8-note", "source": "step-8", "target": "note-8-shelving-tip", "kind": "annotation" }
+  ]
+}
